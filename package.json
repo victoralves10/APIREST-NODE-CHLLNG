@@ -1,0 +1,30 @@
+{
+  "name": "clyvo-backend",
+  "version": "1.0.0",
+  "description": "Backend REST do ClyvoVet Mobile — Sprint 3 (Mobile Application Development)",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "firebase-admin": "^12.6.0",
+    "oracledb": "^6.7.1",
+    "swagger-ui-express": "^5.0.1",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.9.0",
+    "@types/oracledb": "^6.5.2",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@types/yamljs": "^0.2.34",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

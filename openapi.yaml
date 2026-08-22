@@ -1,0 +1,535 @@
+openapi: 3.0.3
+info:
+  title: ClyvoVet API
+  description: >
+    API REST do ClyvoVet Mobile — gestão de consultas, animais e responsáveis.
+    Cada usuário só enxerga os próprios dados, isolados pelo uid do Firebase.
+
+
+    **Modo de teste atual (AUTH_MODE=open):** em vez de um token real do Firebase,
+    use o header `x-dev-uid` com o valor `dev-user-1` em toda rota protegida.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: Servidor local de desenvolvimento
+
+tags:
+  - name: Health
+    description: Verificação de status do servidor
+  - name: Consultas
+  - name: Animais
+  - name: Responsáveis
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Verifica se o servidor está no ar
+      responses:
+        '200':
+          description: Servidor funcionando
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  authMode:
+                    type: string
+                    example: open
+
+  /responsaveis:
+    get:
+      tags: [Responsáveis]
+      summary: Lista responsáveis do usuário (ou busca por CPF)
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - name: cpf
+          in: query
+          required: false
+          description: Se informado, retorna o responsável com esse CPF (ou null) em vez da lista completa
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de responsáveis (ou um único objeto/null, se filtrado por cpf)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Responsavel'
+                  - $ref: '#/components/schemas/Responsavel'
+                  - type: 'null'
+    post:
+      tags: [Responsáveis]
+      summary: Cria um novo responsável
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsavelInput'
+            example:
+              cpf_responsavel: "12345678900"
+              nm_responsavel: "Maria Silva"
+              nr_telefone_responsavel: "11999998888"
+      responses:
+        '201':
+          description: Responsável criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Responsavel'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+
+  /responsaveis/{id}:
+    get:
+      tags: [Responsáveis]
+      summary: Busca um responsável por id
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Responsável encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Responsavel'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    put:
+      tags: [Responsáveis]
+      summary: Atualiza um responsável
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsavelInput'
+      responses:
+        '200':
+          description: Responsável atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Responsavel'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags: [Responsáveis]
+      summary: Remove um responsável (cascata — remove animais e consultas vinculados)
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Removido com sucesso
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /animais:
+    get:
+      tags: [Animais]
+      summary: Lista animais do usuário (ou busca por microchip)
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - name: microchip
+          in: query
+          required: false
+          description: Se informado, retorna o animal com esse microchip (ou null) em vez da lista completa
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de animais (ou um único objeto/null, se filtrado por microchip)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Animal'
+                  - $ref: '#/components/schemas/Animal'
+                  - type: 'null'
+    post:
+      tags: [Animais]
+      summary: Cria um novo animal
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+            example:
+              nm_animal: "Bidu"
+              especie_animal: "Cachorro"
+              raca_animal: "Vira-lata"
+              dt_nascimento_animal: "2023-05-10"
+              peso_animal: 12.5
+              rg_animal: null
+              nr_microchip_animal: "9988"
+              id_responsavel: 1
+      responses:
+        '201':
+          description: Animal criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+
+  /animais/{id}:
+    get:
+      tags: [Animais]
+      summary: Busca um animal por id
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Animal encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    put:
+      tags: [Animais]
+      summary: Atualiza um animal
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+      responses:
+        '200':
+          description: Animal atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags: [Animais]
+      summary: Remove um animal (cascata — remove consultas vinculadas)
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Removido com sucesso
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /animais/{id}/consultas:
+    get:
+      tags: [Animais]
+      summary: Lista o histórico de consultas de um animal
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Lista de consultas do animal
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Consulta'
+
+  /consultas:
+    get:
+      tags: [Consultas]
+      summary: Lista consultas do usuário
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+      responses:
+        '200':
+          description: Lista de consultas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Consulta'
+    post:
+      tags: [Consultas]
+      summary: Cria uma nova consulta
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaInput'
+            example:
+              historico_consulta: "Check-up anual, tudo normal"
+              dt_consulta: "2026-09-15"
+              hr_consulta: "10:00"
+              st_consulta: "Agendado"
+              id_animal: 1
+      responses:
+        '201':
+          description: Consulta criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consulta'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+
+  /consultas/{id}:
+    get:
+      tags: [Consultas]
+      summary: Busca uma consulta por id
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Consulta encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consulta'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    put:
+      tags: [Consultas]
+      summary: Atualiza uma consulta
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaUpdateInput'
+            example:
+              historico_consulta: "Check-up anual — concluído sem alterações"
+              dt_consulta: "2026-09-15"
+              hr_consulta: "10:00"
+              st_consulta: "Concluido"
+      responses:
+        '200':
+          description: Consulta atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consulta'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags: [Consultas]
+      summary: Remove uma consulta
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Removida com sucesso
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+components:
+  parameters:
+    DevUid:
+      name: x-dev-uid
+      in: header
+      required: false
+      description: >
+        Usado apenas enquanto AUTH_MODE=open. Identifica o "usuário" da requisição
+        sem precisar de um token real do Firebase. Valor padrão se omitido: dev-user-1.
+        Quando AUTH_MODE=strict, este header é ignorado e o header
+        "Authorization: Bearer <token>" passa a ser obrigatório.
+      schema:
+        type: string
+        default: dev-user-1
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  responses:
+    NaoEncontrado:
+      description: Registro não encontrado (ou não pertence ao usuário)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    CamposObrigatorios:
+      description: Campos obrigatórios ausentes ou inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+
+  schemas:
+    Erro:
+      type: object
+      properties:
+        error:
+          type: string
+
+    Responsavel:
+      type: object
+      properties:
+        id_responsavel:
+          type: integer
+        uid_firebase:
+          type: string
+        cpf_responsavel:
+          type: string
+        nm_responsavel:
+          type: string
+        nr_telefone_responsavel:
+          type: string
+
+    ResponsavelInput:
+      type: object
+      required: [cpf_responsavel, nm_responsavel, nr_telefone_responsavel]
+      properties:
+        cpf_responsavel:
+          type: string
+        nm_responsavel:
+          type: string
+        nr_telefone_responsavel:
+          type: string
+
+    Animal:
+      type: object
+      properties:
+        id_animal:
+          type: integer
+        rg_animal:
+          type: string
+          nullable: true
+        nr_microchip_animal:
+          type: string
+          nullable: true
+        nm_animal:
+          type: string
+        dt_nascimento_animal:
+          type: string
+          format: date
+          nullable: true
+        peso_animal:
+          type: number
+          nullable: true
+        especie_animal:
+          type: string
+        raca_animal:
+          type: string
+          nullable: true
+        id_responsavel:
+          type: integer
+
+    AnimalInput:
+      type: object
+      required: [nm_animal, especie_animal, id_responsavel]
+      properties:
+        nm_animal:
+          type: string
+        especie_animal:
+          type: string
+        raca_animal:
+          type: string
+        dt_nascimento_animal:
+          type: string
+          format: date
+        peso_animal:
+          type: number
+        rg_animal:
+          type: string
+          nullable: true
+        nr_microchip_animal:
+          type: string
+          nullable: true
+        id_responsavel:
+          type: integer
+
+    Consulta:
+      type: object
+      properties:
+        id_consulta:
+          type: integer
+        historico_consulta:
+          type: string
+        st_consulta:
+          type: string
+          enum: [Agendado, Concluido, Atrasado]
+        dt_consulta:
+          type: string
+          format: date
+        hr_consulta:
+          type: string
+          example: "14:30"
+        id_animal:
+          type: integer
+
+    ConsultaInput:
+      type: object
+      required: [historico_consulta, dt_consulta, hr_consulta, id_animal]
+      properties:
+        historico_consulta:
+          type: string
+        dt_consulta:
+          type: string
+          format: date
+        hr_consulta:
+          type: string
+          example: "14:30"
+        st_consulta:
+          type: string
+          enum: [Agendado, Concluido, Atrasado]
+          description: Se omitido, o backend assume "Agendado"
+        id_animal:
+          type: integer
+
+    ConsultaUpdateInput:
+      type: object
+      required: [historico_consulta, dt_consulta, hr_consulta, st_consulta]
+      properties:
+        historico_consulta:
+          type: string
+        dt_consulta:
+          type: string
+          format: date
+        hr_consulta:
+          type: string
+          example: "14:30"
+        st_consulta:
+          type: string
+          enum: [Agendado, Concluido, Atrasado]
