@@ -14,6 +14,8 @@ info:
   version: 1.0.0
 
 servers:
+  - url: https://apirest-node-chllng.onrender.com
+    description: Servidor em produção (Render)
   - url: http://localhost:3000
     description: Servidor local de desenvolvimento
 
