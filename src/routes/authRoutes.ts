@@ -7,7 +7,7 @@ const router = Router();
 router.post('/cadastro', authController.cadastrar);
 router.post('/login', authController.login);
 router.post('/logout', authController.logout);
-
+router.get('/perfil', authMiddleware, authController.buscarPerfil);
 router.put('/perfil', authMiddleware, authController.atualizarPerfil);
 router.delete('/conta', authMiddleware, authController.apagarConta);
 

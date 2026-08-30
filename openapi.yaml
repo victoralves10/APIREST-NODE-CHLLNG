@@ -127,6 +127,25 @@ paths:
                     type: string
 
   /auth/perfil:
+    get:
+      tags: [Autenticação]
+      summary: Busca os dados do usuário logado (nome, e-mail)
+      responses:
+        '200':
+          description: Dados do usuário
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id_usuario:
+                    type: integer
+                  nm_usuario:
+                    type: string
+                  email_usuario:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
     put:
       tags: [Autenticação]
       summary: Atualiza nome, e-mail e (opcionalmente) senha do usuário logado
