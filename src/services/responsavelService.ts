@@ -1,55 +1,56 @@
+import oracledb from 'oracledb';
 import { runQuery } from '../config/database';
 import { Responsavel, CriarResponsavelBody } from '../types';
 
 export async function listarPorUsuario(uid: string): Promise<Responsavel[]> {
   const result = await runQuery<Responsavel>(
-    `SELECT id_responsavel, uid_firebase, cpf_responsavel, nm_responsavel, nr_telefone_responsavel
+    `SELECT id_responsavel, id_usuario_dono, cpf_responsavel, nm_responsavel, nr_telefone_responsavel
      FROM T_CLYVO_RESPONSAVEL
-     WHERE uid_firebase = :uid
+     WHERE id_usuario_dono = :idUsuario
      ORDER BY nm_responsavel`,
-    { uid }
+    { idUsuario: Number(uid) }
   );
   return result.rows ?? [];
 }
 
 export async function buscarPorId(id: number, uid: string): Promise<Responsavel | null> {
   const result = await runQuery<Responsavel>(
-    `SELECT id_responsavel, uid_firebase, cpf_responsavel, nm_responsavel, nr_telefone_responsavel
+    `SELECT id_responsavel, id_usuario_dono, cpf_responsavel, nm_responsavel, nr_telefone_responsavel
      FROM T_CLYVO_RESPONSAVEL
-     WHERE id_responsavel = :id AND uid_firebase = :uid`,
-    { id, uid }
+     WHERE id_responsavel = :id AND id_usuario_dono = :idUsuario`,
+    { id, idUsuario: Number(uid) }
   );
   return result.rows?.[0] ?? null;
 }
 
 export async function buscarPorCpf(cpf: string, uid: string): Promise<Responsavel | null> {
   const result = await runQuery<Responsavel>(
-    `SELECT id_responsavel, uid_firebase, cpf_responsavel, nm_responsavel, nr_telefone_responsavel
+    `SELECT id_responsavel, id_usuario_dono, cpf_responsavel, nm_responsavel, nr_telefone_responsavel
      FROM T_CLYVO_RESPONSAVEL
-     WHERE cpf_responsavel = :cpf AND uid_firebase = :uid`,
-    { cpf, uid }
+     WHERE cpf_responsavel = :cpf AND id_usuario_dono = :idUsuario`,
+    { cpf, idUsuario: Number(uid) }
   );
   return result.rows?.[0] ?? null;
 }
 
 export async function criar(body: CriarResponsavelBody, uid: string): Promise<Responsavel> {
   const result = await runQuery<{ id_responsavel: number }>(
-    `INSERT INTO T_CLYVO_RESPONSAVEL (uid_firebase, cpf_responsavel, nm_responsavel, nr_telefone_responsavel)
-     VALUES (:uid, :cpf, :nome, :telefone)
+    `INSERT INTO T_CLYVO_RESPONSAVEL (id_usuario_dono, cpf_responsavel, nm_responsavel, nr_telefone_responsavel)
+     VALUES (:idUsuario, :cpf, :nome, :telefone)
      RETURNING id_responsavel INTO :novoId`,
     {
-      uid,
+      idUsuario: Number(uid),
       cpf: body.cpf_responsavel,
       nome: body.nm_responsavel,
       telefone: body.nr_telefone_responsavel,
-      novoId: { dir: 3003 /* BIND_OUT */, type: 2010 /* NUMBER */ },
+      novoId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
     }
   );
 
   const novoId = (result.outBinds as any).novoId[0];
   return {
     id_responsavel: novoId,
-    uid_firebase: uid,
+    id_usuario_dono: Number(uid),
     cpf_responsavel: body.cpf_responsavel,
     nm_responsavel: body.nm_responsavel,
     nr_telefone_responsavel: body.nr_telefone_responsavel,
@@ -64,10 +65,10 @@ export async function atualizar(
   const result = await runQuery(
     `UPDATE T_CLYVO_RESPONSAVEL
      SET cpf_responsavel = :cpf, nm_responsavel = :nome, nr_telefone_responsavel = :telefone
-     WHERE id_responsavel = :id AND uid_firebase = :uid`,
+     WHERE id_responsavel = :id AND id_usuario_dono = :idUsuario`,
     {
       id,
-      uid,
+      idUsuario: Number(uid),
       cpf: body.cpf_responsavel,
       nome: body.nm_responsavel,
       telefone: body.nr_telefone_responsavel,
@@ -79,8 +80,8 @@ export async function atualizar(
 export async function remover(id: number, uid: string): Promise<boolean> {
   // ON DELETE CASCADE no schema já cuida de remover Animais e Consultas vinculados.
   const result = await runQuery(
-    `DELETE FROM T_CLYVO_RESPONSAVEL WHERE id_responsavel = :id AND uid_firebase = :uid`,
-    { id, uid }
+    `DELETE FROM T_CLYVO_RESPONSAVEL WHERE id_responsavel = :id AND id_usuario_dono = :idUsuario`,
+    { id, idUsuario: Number(uid) }
   );
   return (result.rowsAffected ?? 0) > 0;
 }

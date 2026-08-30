@@ -1,19 +1,10 @@
 import oracledb from 'oracledb';
 
-// Faz o driver devolver os resultados já como objetos { coluna: valor },
-// em vez de arrays posicionais — muito mais fácil de trabalhar no código.
 oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
-
-// Converte automaticamente CLOB/BLOB para string/buffer direto no resultado,
-// sem precisar tratar stream manualmente em cada query.
 oracledb.fetchAsString = [oracledb.CLOB];
 
 let pool: oracledb.Pool | null = null;
 
-/**
- * Cria (uma única vez) o pool de conexões com o Oracle.
- * Chamado no start do servidor, antes de aceitar qualquer requisição.
- */
 export async function initDatabase(): Promise<void> {
   if (pool) return;
 
@@ -38,9 +29,21 @@ export async function initDatabase(): Promise<void> {
 }
 
 /**
- * Executa uma query única, cuidando de abrir e fechar a conexão sozinho.
- * Uso: await runQuery('SELECT * FROM tabela WHERE id = :id', { id: 1 })
+ * O node-oracledb devolve os nomes das colunas em MAIÚSCULO por padrão
+ * (ex: SENHA_HASH), mesmo quando a coluna foi criada em minúsculo no SQL.
+ * Todo o código dos services usa os nomes em minúsculo (senha_hash,
+ * nm_usuario, etc.), então esta função converte cada linha retornada
+ * antes de devolver — evita ter que reescrever cada query com aspas
+ * duplas ou renomear cada service individualmente.
  */
+function paraMinusculo<T>(linha: any): T {
+  const convertida: any = {};
+  for (const chave in linha) {
+    convertida[chave.toLowerCase()] = linha[chave];
+  }
+  return convertida as T;
+}
+
 export async function runQuery<T = any>(
   sql: string,
   binds: oracledb.BindParameters = {},
@@ -56,15 +59,17 @@ export async function runQuery<T = any>(
       autoCommit: true,
       ...options,
     });
+
+    if (result.rows) {
+      result.rows = result.rows.map((linha) => paraMinusculo<T>(linha));
+    }
+
     return result;
   } finally {
     await connection.close();
   }
 }
 
-/**
- * Fecha o pool de conexões (usado no shutdown gracioso do servidor).
- */
 export async function closeDatabase(): Promise<void> {
   if (pool) {
     await pool.close(10);

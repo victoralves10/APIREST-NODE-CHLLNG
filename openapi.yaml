@@ -3,11 +3,14 @@ info:
   title: ClyvoVet API
   description: >
     API REST do ClyvoVet Mobile — gestão de consultas, animais e responsáveis.
-    Cada usuário só enxerga os próprios dados, isolados pelo uid do Firebase.
+    Cada usuário só enxerga os próprios dados.
 
 
-    **Modo de teste atual (AUTH_MODE=open):** em vez de um token real do Firebase,
-    use o header `x-dev-uid` com o valor `dev-user-1` em toda rota protegida.
+    **Como testar:** primeiro chame POST /auth/cadastro (ou /auth/login se já
+    tiver conta) para obter um token. Depois clique no botão "Authorize" no
+    topo desta página e cole o token (sem a palavra "Bearer", o Swagger já
+    adiciona isso sozinho). A partir daí, todas as rotas protegidas enviam
+    o token automaticamente.
   version: 1.0.0
 
 servers:
@@ -17,15 +20,21 @@ servers:
 tags:
   - name: Health
     description: Verificação de status do servidor
+  - name: Autenticação
+    description: Cadastro, login e logout — não exigem token
   - name: Consultas
   - name: Animais
   - name: Responsáveis
+
+security:
+  - bearerAuth: []
 
 paths:
   /health:
     get:
       tags: [Health]
       summary: Verifica se o servidor está no ar
+      security: []
       responses:
         '200':
           description: Servidor funcionando
@@ -37,16 +46,145 @@ paths:
                   status:
                     type: string
                     example: ok
-                  authMode:
+
+  /auth/cadastro:
+    post:
+      tags: [Autenticação]
+      summary: Cria uma nova conta
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CadastroInput'
+            example:
+              nome: "Maria Veterinária"
+              email: "maria@clyvovet.dev"
+              senha: "senha123456"
+      responses:
+        '201':
+          description: Conta criada, token retornado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '409':
+          description: Já existe uma conta com este e-mail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Autentica com e-mail e senha
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+            example:
+              email: "maria@clyvovet.dev"
+              senha: "senha123456"
+      responses:
+        '200':
+          description: Login efetuado, token retornado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '401':
+          description: E-mail ou senha incorretos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /auth/logout:
+    post:
+      tags: [Autenticação]
+      summary: Encerra a sessão (o token deve ser descartado pelo app)
+      security: []
+      responses:
+        '200':
+          description: Logout confirmado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
                     type: string
-                    example: open
+
+  /auth/perfil:
+    put:
+      tags: [Autenticação]
+      summary: Atualiza nome, e-mail e (opcionalmente) senha do usuário logado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarPerfilInput'
+            example:
+              nome: "Maria Veterinária"
+              email: "maria@clyvovet.dev"
+      responses:
+        '200':
+          description: Perfil atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id_usuario:
+                    type: integer
+                  nm_usuario:
+                    type: string
+                  email_usuario:
+                    type: string
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+
+  /auth/conta:
+    delete:
+      tags: [Autenticação]
+      summary: Apaga a conta do usuário logado (exige confirmação de senha)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApagarContaInput'
+            example:
+              senha: "senha123456"
+      responses:
+        '204':
+          description: Conta apagada com sucesso
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '401':
+          description: Senha incorreta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
 
   /responsaveis:
     get:
       tags: [Responsáveis]
       summary: Lista responsáveis do usuário (ou busca por CPF)
       parameters:
-        - $ref: '#/components/parameters/DevUid'
         - name: cpf
           in: query
           required: false
@@ -64,12 +202,10 @@ paths:
                     items:
                       $ref: '#/components/schemas/Responsavel'
                   - $ref: '#/components/schemas/Responsavel'
-                  - type: 'null'
+                nullable: true
     post:
       tags: [Responsáveis]
       summary: Cria um novo responsável
-      parameters:
-        - $ref: '#/components/parameters/DevUid'
       requestBody:
         required: true
         content:
@@ -95,7 +231,6 @@ paths:
       tags: [Responsáveis]
       summary: Busca um responsável por id
       parameters:
-        - $ref: '#/components/parameters/DevUid'
         - $ref: '#/components/parameters/Id'
       responses:
         '200':
@@ -110,7 +245,6 @@ paths:
       tags: [Responsáveis]
       summary: Atualiza um responsável
       parameters:
-        - $ref: '#/components/parameters/DevUid'
         - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
@@ -133,7 +267,6 @@ paths:
       tags: [Responsáveis]
       summary: Remove um responsável (cascata — remove animais e consultas vinculados)
       parameters:
-        - $ref: '#/components/parameters/DevUid'
         - $ref: '#/components/parameters/Id'
       responses:
         '204':
@@ -146,7 +279,6 @@ paths:
       tags: [Animais]
       summary: Lista animais do usuário (ou busca por microchip)
       parameters:
-        - $ref: '#/components/parameters/DevUid'
         - name: microchip
           in: query
           required: false
@@ -164,12 +296,10 @@ paths:
                     items:
                       $ref: '#/components/schemas/Animal'
                   - $ref: '#/components/schemas/Animal'
-                  - type: 'null'
+                nullable: true
     post:
       tags: [Animais]
       summary: Cria um novo animal
-      parameters:
-        - $ref: '#/components/parameters/DevUid'
       requestBody:
         required: true
         content:
@@ -200,7 +330,6 @@ paths:
       tags: [Animais]
       summary: Busca um animal por id
       parameters:
-        - $ref: '#/components/parameters/DevUid'
         - $ref: '#/components/parameters/Id'
       responses:
         '200':
@@ -215,7 +344,6 @@ paths:
       tags: [Animais]
       summary: Atualiza um animal
       parameters:
-        - $ref: '#/components/parameters/DevUid'
         - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
@@ -238,7 +366,6 @@ paths:
       tags: [Animais]
       summary: Remove um animal (cascata — remove consultas vinculadas)
       parameters:
-        - $ref: '#/components/parameters/DevUid'
         - $ref: '#/components/parameters/Id'
       responses:
         '204':
@@ -251,7 +378,6 @@ paths:
       tags: [Animais]
       summary: Lista o histórico de consultas de um animal
       parameters:
-        - $ref: '#/components/parameters/DevUid'
         - $ref: '#/components/parameters/Id'
       responses:
         '200':
@@ -267,8 +393,6 @@ paths:
     get:
       tags: [Consultas]
       summary: Lista consultas do usuário
-      parameters:
-        - $ref: '#/components/parameters/DevUid'
       responses:
         '200':
           description: Lista de consultas
@@ -281,8 +405,6 @@ paths:
     post:
       tags: [Consultas]
       summary: Cria uma nova consulta
-      parameters:
-        - $ref: '#/components/parameters/DevUid'
       requestBody:
         required: true
         content:
@@ -310,7 +432,6 @@ paths:
       tags: [Consultas]
       summary: Busca uma consulta por id
       parameters:
-        - $ref: '#/components/parameters/DevUid'
         - $ref: '#/components/parameters/Id'
       responses:
         '200':
@@ -325,7 +446,6 @@ paths:
       tags: [Consultas]
       summary: Atualiza uma consulta
       parameters:
-        - $ref: '#/components/parameters/DevUid'
         - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
@@ -353,7 +473,6 @@ paths:
       tags: [Consultas]
       summary: Remove uma consulta
       parameters:
-        - $ref: '#/components/parameters/DevUid'
         - $ref: '#/components/parameters/Id'
       responses:
         '204':
@@ -362,19 +481,17 @@ paths:
           $ref: '#/components/responses/NaoEncontrado'
 
 components:
-  parameters:
-    DevUid:
-      name: x-dev-uid
-      in: header
-      required: false
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: >
-        Usado apenas enquanto AUTH_MODE=open. Identifica o "usuário" da requisição
-        sem precisar de um token real do Firebase. Valor padrão se omitido: dev-user-1.
-        Quando AUTH_MODE=strict, este header é ignorado e o header
-        "Authorization: Bearer <token>" passa a ser obrigatório.
-      schema:
-        type: string
-        default: dev-user-1
+        Token obtido em POST /auth/login ou POST /auth/cadastro.
+        Cole apenas o token no botão "Authorize" — o prefixo "Bearer" é
+        adicionado automaticamente pelo Swagger UI.
+
+  parameters:
     Id:
       name: id
       in: path
@@ -403,13 +520,75 @@ components:
         error:
           type: string
 
+    CadastroInput:
+      type: object
+      required: [nome, email, senha]
+      properties:
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          format: password
+          description: Mínimo 6 caracteres
+
+    LoginInput:
+      type: object
+      required: [email, senha]
+      properties:
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          format: password
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT — use no botão "Authorize" para as demais rotas
+        usuario:
+          type: object
+          properties:
+            id_usuario:
+              type: integer
+            nm_usuario:
+              type: string
+            email_usuario:
+              type: string
+
+    AtualizarPerfilInput:
+      type: object
+      required: [nome, email]
+      properties:
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          format: password
+          description: Opcional — só envie se quiser trocar a senha atual. Mínimo 6 caracteres.
+
+    ApagarContaInput:
+      type: object
+      required: [senha]
+      properties:
+        senha:
+          type: string
+          format: password
+          description: Senha atual, exigida para confirmar a exclusão da conta.
+
     Responsavel:
       type: object
       properties:
         id_responsavel:
           type: integer
-        uid_firebase:
-          type: string
         cpf_responsavel:
           type: string
         nm_responsavel:

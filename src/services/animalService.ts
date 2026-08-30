@@ -1,8 +1,9 @@
+import oracledb from 'oracledb';
 import { runQuery } from '../config/database';
 import { Animal, CriarAnimalBody } from '../types';
 
-// Todas as queries fazem JOIN com T_CLYVO_RESPONSAVEL para checar o uid_firebase,
-// já que Animal não guarda o uid diretamente — ele herda o "dono" via responsável.
+// Todas as queries fazem JOIN com T_CLYVO_RESPONSAVEL para checar o dono,
+// já que Animal não guarda o id do usuário diretamente — ele herda via responsável.
 
 export async function listarPorUsuario(uid: string): Promise<Animal[]> {
   const result = await runQuery<Animal>(
@@ -11,9 +12,9 @@ export async function listarPorUsuario(uid: string): Promise<Animal[]> {
             a.id_responsavel
      FROM T_CLYVO_ANIMAL a
      INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
-     WHERE r.uid_firebase = :uid
+     WHERE r.id_usuario_dono = :idUsuario
      ORDER BY a.nm_animal`,
-    { uid }
+    { idUsuario: Number(uid) }
   );
   return result.rows ?? [];
 }
@@ -25,8 +26,8 @@ export async function buscarPorId(id: number, uid: string): Promise<Animal | nul
             a.id_responsavel
      FROM T_CLYVO_ANIMAL a
      INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
-     WHERE a.id_animal = :id AND r.uid_firebase = :uid`,
-    { id, uid }
+     WHERE a.id_animal = :id AND r.id_usuario_dono = :idUsuario`,
+    { id, idUsuario: Number(uid) }
   );
   return result.rows?.[0] ?? null;
 }
@@ -38,8 +39,8 @@ export async function buscarPorMicrochip(microchip: string, uid: string): Promis
             a.id_responsavel
      FROM T_CLYVO_ANIMAL a
      INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
-     WHERE a.nr_microchip_animal = :microchip AND r.uid_firebase = :uid`,
-    { microchip, uid }
+     WHERE a.nr_microchip_animal = :microchip AND r.id_usuario_dono = :idUsuario`,
+    { microchip, idUsuario: Number(uid) }
   );
   return result.rows?.[0] ?? null;
 }
@@ -60,7 +61,7 @@ export async function criar(body: CriarAnimalBody): Promise<Animal> {
       especie: body.especie_animal,
       raca: body.raca_animal ?? null,
       idResponsavel: body.id_responsavel,
-      novoId: { dir: 3003, type: 2010 },
+      novoId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
     }
   );
 
@@ -81,11 +82,11 @@ export async function atualizar(id: number, body: CriarAnimalBody, uid: string):
      WHERE a.id_animal = :id
        AND EXISTS (
          SELECT 1 FROM T_CLYVO_RESPONSAVEL r
-         WHERE r.id_responsavel = a.id_responsavel AND r.uid_firebase = :uid
+         WHERE r.id_responsavel = a.id_responsavel AND r.id_usuario_dono = :idUsuario
        )`,
     {
       id,
-      uid,
+      uid: Number(uid),
       rg: body.rg_animal ?? null,
       microchip: body.nr_microchip_animal ?? null,
       nome: body.nm_animal,
@@ -105,9 +106,9 @@ export async function remover(id: number, uid: string): Promise<boolean> {
      WHERE a.id_animal = :id
        AND EXISTS (
          SELECT 1 FROM T_CLYVO_RESPONSAVEL r
-         WHERE r.id_responsavel = a.id_responsavel AND r.uid_firebase = :uid
+         WHERE r.id_responsavel = a.id_responsavel AND r.id_usuario_dono = :idUsuario
        )`,
-    { id, uid }
+    { id, idUsuario: Number(uid) }
   );
   return (result.rowsAffected ?? 0) > 0;
 }

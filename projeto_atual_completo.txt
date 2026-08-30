@@ -1,0 +1,4173 @@
+===== ./openapi.yaml =====
+openapi: 3.0.3
+info:
+  title: ClyvoVet API
+  description: >
+    API REST do ClyvoVet Mobile — gestão de consultas, animais e responsáveis.
+    Cada usuário só enxerga os próprios dados, isolados pelo uid do Firebase.
+
+
+    **Modo de teste atual (AUTH_MODE=open):** em vez de um token real do Firebase,
+    use o header `x-dev-uid` com o valor `dev-user-1` em toda rota protegida.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: Servidor local de desenvolvimento
+
+tags:
+  - name: Health
+    description: Verificação de status do servidor
+  - name: Consultas
+  - name: Animais
+  - name: Responsáveis
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Verifica se o servidor está no ar
+      responses:
+        '200':
+          description: Servidor funcionando
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  authMode:
+                    type: string
+                    example: open
+
+  /responsaveis:
+    get:
+      tags: [Responsáveis]
+      summary: Lista responsáveis do usuário (ou busca por CPF)
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - name: cpf
+          in: query
+          required: false
+          description: Se informado, retorna o responsável com esse CPF (ou null) em vez da lista completa
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de responsáveis (ou um único objeto/null, se filtrado por cpf)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Responsavel'
+                  - $ref: '#/components/schemas/Responsavel'
+                  - type: 'null'
+    post:
+      tags: [Responsáveis]
+      summary: Cria um novo responsável
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsavelInput'
+            example:
+              cpf_responsavel: "12345678900"
+              nm_responsavel: "Maria Silva"
+              nr_telefone_responsavel: "11999998888"
+      responses:
+        '201':
+          description: Responsável criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Responsavel'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+
+  /responsaveis/{id}:
+    get:
+      tags: [Responsáveis]
+      summary: Busca um responsável por id
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Responsável encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Responsavel'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    put:
+      tags: [Responsáveis]
+      summary: Atualiza um responsável
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsavelInput'
+      responses:
+        '200':
+          description: Responsável atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Responsavel'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags: [Responsáveis]
+      summary: Remove um responsável (cascata — remove animais e consultas vinculados)
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Removido com sucesso
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /animais:
+    get:
+      tags: [Animais]
+      summary: Lista animais do usuário (ou busca por microchip)
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - name: microchip
+          in: query
+          required: false
+          description: Se informado, retorna o animal com esse microchip (ou null) em vez da lista completa
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de animais (ou um único objeto/null, se filtrado por microchip)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Animal'
+                  - $ref: '#/components/schemas/Animal'
+                  - type: 'null'
+    post:
+      tags: [Animais]
+      summary: Cria um novo animal
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+            example:
+              nm_animal: "Bidu"
+              especie_animal: "Cachorro"
+              raca_animal: "Vira-lata"
+              dt_nascimento_animal: "2023-05-10"
+              peso_animal: 12.5
+              rg_animal: null
+              nr_microchip_animal: "9988"
+              id_responsavel: 1
+      responses:
+        '201':
+          description: Animal criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+
+  /animais/{id}:
+    get:
+      tags: [Animais]
+      summary: Busca um animal por id
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Animal encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    put:
+      tags: [Animais]
+      summary: Atualiza um animal
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+      responses:
+        '200':
+          description: Animal atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags: [Animais]
+      summary: Remove um animal (cascata — remove consultas vinculadas)
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Removido com sucesso
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /animais/{id}/consultas:
+    get:
+      tags: [Animais]
+      summary: Lista o histórico de consultas de um animal
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Lista de consultas do animal
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Consulta'
+
+  /consultas:
+    get:
+      tags: [Consultas]
+      summary: Lista consultas do usuário
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+      responses:
+        '200':
+          description: Lista de consultas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Consulta'
+    post:
+      tags: [Consultas]
+      summary: Cria uma nova consulta
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaInput'
+            example:
+              historico_consulta: "Check-up anual, tudo normal"
+              dt_consulta: "2026-09-15"
+              hr_consulta: "10:00"
+              st_consulta: "Agendado"
+              id_animal: 1
+      responses:
+        '201':
+          description: Consulta criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consulta'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+
+  /consultas/{id}:
+    get:
+      tags: [Consultas]
+      summary: Busca uma consulta por id
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Consulta encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consulta'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    put:
+      tags: [Consultas]
+      summary: Atualiza uma consulta
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaUpdateInput'
+            example:
+              historico_consulta: "Check-up anual — concluído sem alterações"
+              dt_consulta: "2026-09-15"
+              hr_consulta: "10:00"
+              st_consulta: "Concluido"
+      responses:
+        '200':
+          description: Consulta atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consulta'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags: [Consultas]
+      summary: Remove uma consulta
+      parameters:
+        - $ref: '#/components/parameters/DevUid'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Removida com sucesso
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+components:
+  parameters:
+    DevUid:
+      name: x-dev-uid
+      in: header
+      required: false
+      description: >
+        Usado apenas enquanto AUTH_MODE=open. Identifica o "usuário" da requisição
+        sem precisar de um token real do Firebase. Valor padrão se omitido: dev-user-1.
+        Quando AUTH_MODE=strict, este header é ignorado e o header
+        "Authorization: Bearer <token>" passa a ser obrigatório.
+      schema:
+        type: string
+        default: dev-user-1
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  responses:
+    NaoEncontrado:
+      description: Registro não encontrado (ou não pertence ao usuário)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    CamposObrigatorios:
+      description: Campos obrigatórios ausentes ou inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+
+  schemas:
+    Erro:
+      type: object
+      properties:
+        error:
+          type: string
+
+    Responsavel:
+      type: object
+      properties:
+        id_responsavel:
+          type: integer
+        uid_firebase:
+          type: string
+        cpf_responsavel:
+          type: string
+        nm_responsavel:
+          type: string
+        nr_telefone_responsavel:
+          type: string
+
+    ResponsavelInput:
+      type: object
+      required: [cpf_responsavel, nm_responsavel, nr_telefone_responsavel]
+      properties:
+        cpf_responsavel:
+          type: string
+        nm_responsavel:
+          type: string
+        nr_telefone_responsavel:
+          type: string
+
+    Animal:
+      type: object
+      properties:
+        id_animal:
+          type: integer
+        rg_animal:
+          type: string
+          nullable: true
+        nr_microchip_animal:
+          type: string
+          nullable: true
+        nm_animal:
+          type: string
+        dt_nascimento_animal:
+          type: string
+          format: date
+          nullable: true
+        peso_animal:
+          type: number
+          nullable: true
+        especie_animal:
+          type: string
+        raca_animal:
+          type: string
+          nullable: true
+        id_responsavel:
+          type: integer
+
+    AnimalInput:
+      type: object
+      required: [nm_animal, especie_animal, id_responsavel]
+      properties:
+        nm_animal:
+          type: string
+        especie_animal:
+          type: string
+        raca_animal:
+          type: string
+        dt_nascimento_animal:
+          type: string
+          format: date
+        peso_animal:
+          type: number
+        rg_animal:
+          type: string
+          nullable: true
+        nr_microchip_animal:
+          type: string
+          nullable: true
+        id_responsavel:
+          type: integer
+
+    Consulta:
+      type: object
+      properties:
+        id_consulta:
+          type: integer
+        historico_consulta:
+          type: string
+        st_consulta:
+          type: string
+          enum: [Agendado, Concluido, Atrasado]
+        dt_consulta:
+          type: string
+          format: date
+        hr_consulta:
+          type: string
+          example: "14:30"
+        id_animal:
+          type: integer
+
+    ConsultaInput:
+      type: object
+      required: [historico_consulta, dt_consulta, hr_consulta, id_animal]
+      properties:
+        historico_consulta:
+          type: string
+        dt_consulta:
+          type: string
+          format: date
+        hr_consulta:
+          type: string
+          example: "14:30"
+        st_consulta:
+          type: string
+          enum: [Agendado, Concluido, Atrasado]
+          description: Se omitido, o backend assume "Agendado"
+        id_animal:
+          type: integer
+
+    ConsultaUpdateInput:
+      type: object
+      required: [historico_consulta, dt_consulta, hr_consulta, st_consulta]
+      properties:
+        historico_consulta:
+          type: string
+        dt_consulta:
+          type: string
+          format: date
+        hr_consulta:
+          type: string
+          example: "14:30"
+        st_consulta:
+          type: string
+          enum: [Agendado, Concluido, Atrasado]
+
+
+===== ./package.json =====
+{
+  "name": "clyvo-backend",
+  "version": "1.0.0",
+  "description": "Backend REST do ClyvoVet Mobile — Sprint 3 (Mobile Application Development)",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.3",
+    "oracledb": "^6.7.1",
+    "swagger-ui-express": "^5.0.1",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.9.0",
+    "@types/oracledb": "^6.5.2",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@types/yamljs": "^0.2.34",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
+
+
+===== ./package-lock.json =====
+{
+  "name": "clyvo-backend",
+  "version": "1.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "clyvo-backend",
+      "version": "1.0.0",
+      "dependencies": {
+        "bcrypt": "^6.0.0",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.5",
+        "express": "^4.21.1",
+        "jsonwebtoken": "^9.0.3",
+        "oracledb": "^6.7.1",
+        "swagger-ui-express": "^5.0.1",
+        "yamljs": "^0.3.0"
+      },
+      "devDependencies": {
+        "@types/bcrypt": "^6.0.0",
+        "@types/cors": "^2.8.17",
+        "@types/express": "^4.17.21",
+        "@types/jsonwebtoken": "^9.0.10",
+        "@types/node": "^22.9.0",
+        "@types/oracledb": "^6.5.2",
+        "@types/swagger-ui-express": "^4.1.8",
+        "@types/yamljs": "^0.2.34",
+        "tsx": "^4.19.2",
+        "typescript": "^5.6.3"
+      }
+    },
+    "node_modules/@esbuild/aix-ppc64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/aix-ppc64/-/aix-ppc64-0.28.2.tgz",
+      "integrity": "sha512-XExcO+dvLKvVtNTibSTBej1NCAbaGhWn9Ww1ZPx80qsahhPFe/8jgWP0IchNe0F3HwkU7n8ejhH8bjonqht8mQ==",
+      "cpu": [
+        "ppc64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "aix"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/android-arm": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/android-arm/-/android-arm-0.28.2.tgz",
+      "integrity": "sha512-kXXoiPVVGQcnIYGOeaovwOURpniDBpSq4A03qkQ+BMQqtGG6HYap3xne9C1O1yo4TR3qxlCX5IqqmX6fFo2Lqg==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/android-arm64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/android-arm64/-/android-arm64-0.28.2.tgz",
+      "integrity": "sha512-5YfKeeI8qWfBZIX+u2xZC3Zlb3Os/gLS2sbEKM+I4ZOcsWmHS2WLysCcQZDAFRslDUU5Oiq44gf6PYN1vGwG5A==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/android-x64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/android-x64/-/android-x64-0.28.2.tgz",
+      "integrity": "sha512-O387ite7SzUyCcy3JQX4P4bLtEA7bLLkx+esve5JHnyYfNTxcVpXZo9jhdB0lTKN44gztELTdU7nS8Nr16Fs1Q==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "android"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/darwin-arm64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/darwin-arm64/-/darwin-arm64-0.28.2.tgz",
+      "integrity": "sha512-n4KqkOQrraxHJcgjM1RvwbigfQKIKJVpM7xp+KsxiyUSrRdIXnt73VhrPAx0fV44hgfmIVKjxMN9J1t5jySVkw==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/darwin-x64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/darwin-x64/-/darwin-x64-0.28.2.tgz",
+      "integrity": "sha512-uq6suIWYP37qzGddBKPw5QEQPi6HiLGsO7UmkpfyaYNQ3D+rN6w6WfwH+nuqcGXWvawGwxOEroO4YGnFh95azw==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/freebsd-arm64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/freebsd-arm64/-/freebsd-arm64-0.28.2.tgz",
+      "integrity": "sha512-n+I0BTSRIoy+d6RPKnEVwql5UwBJolytvY4mAOIEJorKlqgPII8ix6slVVrfZ5Tnj7glIZvloylbB/EJPMWEXw==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "freebsd"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/freebsd-x64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/freebsd-x64/-/freebsd-x64-0.28.2.tgz",
+      "integrity": "sha512-78XJTJkvPs0kz2w61301PJjXl4g7q3JqiYMZ/M/yVI73EHBrCRTgkhu9oqG7vPqq+a/yadEW8aD+agKlk5xrmg==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "freebsd"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/linux-arm": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-arm/-/linux-arm-0.28.2.tgz",
+      "integrity": "sha512-XlDnu2q5yoqems+xay6wSAcg9DDD7K9RLKZEBOMZm3ckNpJBvOX20tSfby8KfrrhINDyv9V2YVZKY/SpoGJI8w==",
+      "cpu": [
+        "arm"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/linux-arm64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-arm64/-/linux-arm64-0.28.2.tgz",
+      "integrity": "sha512-pW4AC0P3it8c7do9MVM4p51FzHzdM/TZrerurgRcHJ2WTa1VQ1CIq18xncfpBJw4ojkiZZrKW2yIBWBP92j6Ug==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/linux-ia32": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-ia32/-/linux-ia32-0.28.2.tgz",
+      "integrity": "sha512-CYbnj78HsIeA+DhgUKgFCfvNsTHFhMMrinUrMZpDXJXKN8T3XViTZ/+wtHeVxEWY8ewSzTFN+nRmSwO2tZaLUQ==",
+      "cpu": [
+        "ia32"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/linux-loong64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-loong64/-/linux-loong64-0.28.2.tgz",
+      "integrity": "sha512-buwkd8nsph4R+ajRvw0qM5Hja/TXQow3ptzWO2EbG/cqcIkHloRrdlBtQlshyYGTNFvfkfJ5tpPLVkY4DtsPfQ==",
+      "cpu": [
+        "loong64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/linux-mips64el": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-mips64el/-/linux-mips64el-0.28.2.tgz",
+      "integrity": "sha512-ZVykbDyk7519VwiNb9Lcj9m8XM6v5V9uKPvrEMkkEedVewf+0itkhahp4HDpgERXhwLRpWFypsGbG/J8s0QjJA==",
+      "cpu": [
+        "mips64el"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/linux-ppc64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-ppc64/-/linux-ppc64-0.28.2.tgz",
+      "integrity": "sha512-CAXl+Dtd9UUuJd8pKKdwh6MLm3MUMiqMPmhZ3tTSXPqfyQ3vDl6R5hZdZ/kYojK4ofXtdfSv1tFq8XzWx3heNQ==",
+      "cpu": [
+        "ppc64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/linux-riscv64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-riscv64/-/linux-riscv64-0.28.2.tgz",
+      "integrity": "sha512-GeXCej4IQtU1B+QlDV8W/RRvbzI3O/Stss+/bCXv4lZls5WGRtu2a+3JkA3i4qIUlMXpcHebWpF8AkJhATowuA==",
+      "cpu": [
+        "riscv64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/linux-s390x": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-s390x/-/linux-s390x-0.28.2.tgz",
+      "integrity": "sha512-3H1weTYZPxt/WOhByszQZybS9w5lKzUn1FDMsgEChbHWQwHYQQRfBxgCcZvPhjHfKyJjIievvMmEUawJrdY9Dg==",
+      "cpu": [
+        "s390x"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/linux-x64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.28.2.tgz",
+      "integrity": "sha512-4xTZr1FUmSoQW4XIWmit3tzQrUTZM+N3P0XV8xROKYF50XfI7xeO90+1bZvNwxIufQ9hDQVRJH5YhgPVF8A/HQ==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "linux"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/netbsd-arm64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/netbsd-arm64/-/netbsd-arm64-0.28.2.tgz",
+      "integrity": "sha512-sSATRjPeDBg3pdgHoQfoYBob11Kk1FGa9lui5RIHZCoCkJa9QKlvl3/vKz2usCmYYjs7ymJR/2Nnsqe+Hjt5nw==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "netbsd"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/netbsd-x64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/netbsd-x64/-/netbsd-x64-0.28.2.tgz",
+      "integrity": "sha512-lqnzCV+mM0gIADaKihiCg6ifgfU2L3h5E33rNQBN1Y4MaVGnzryzmvvf7UHxprpQdE8hpqLolJ9Rl+SkIRDpyw==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "netbsd"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/openbsd-arm64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/openbsd-arm64/-/openbsd-arm64-0.28.2.tgz",
+      "integrity": "sha512-AL2qJILH7lNjrDmCQDvdxMfAUIv8KMNZOvrwAQ8i8//ntL9FflhOyMJ8OZSMBb8/AWXe3/5v5S20y3zCoZWKoQ==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "openbsd"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/openbsd-x64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/openbsd-x64/-/openbsd-x64-0.28.2.tgz",
+      "integrity": "sha512-QtiuPytchRyC4rwUKhexJdQKvDuZ6hWloi3igqPQNUJCS1/v9EiO3UTOXR6A3FoMo4fnAKbWJdqaIwhOzh8qEw==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "openbsd"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/openharmony-arm64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/openharmony-arm64/-/openharmony-arm64-0.28.2.tgz",
+      "integrity": "sha512-WkhYDmpTjLvGlScA1rwjRUmhl4k8oXR3cIbtqWmELgU/dFeHHlEllxDvdWcNJV9rbzCexB5vz8gtNewWLgCT7Q==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "openharmony"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/sunos-x64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/sunos-x64/-/sunos-x64-0.28.2.tgz",
+      "integrity": "sha512-GPMSkTOtMnv2U2F8gxe4Io6qmVs+YKyp832Etqqxr0hFngmXQ3rzwytelm3GIn7T4VviRUlf3sOgBOiTdvaf7g==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "sunos"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/win32-arm64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/win32-arm64/-/win32-arm64-0.28.2.tgz",
+      "integrity": "sha512-PIhhEkE9uPBleRBrQEJpUn7MBnibZzbGzYWPmY3x+YoVg/95zbjB4CxPPOQ8l5tYYM4mMaCthF8/1DIfBQQyWQ==",
+      "cpu": [
+        "arm64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/win32-ia32": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/win32-ia32/-/win32-ia32-0.28.2.tgz",
+      "integrity": "sha512-YmJbfTlvU7Sdn9BB+4PRES4oB6pxgS37MAONj+hBr/cpXS1aBPKXxNnDbu+QCWPj0o9dgyxeq79g6c5P8KeuYA==",
+      "cpu": [
+        "ia32"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@esbuild/win32-x64": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.28.2.tgz",
+      "integrity": "sha512-5ebpxr3nWMzrL/rnUI755Jkuee0bHL/Gq0WTF9lvcpv73wAp5eu8MfBUgWK9bhWvZjj7yX8etf/8tI8Ney695g==",
+      "cpu": [
+        "x64"
+      ],
+      "dev": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "win32"
+      ],
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@scarf/scarf": {
+      "version": "1.4.0",
+      "resolved": "https://registry.npmjs.org/@scarf/scarf/-/scarf-1.4.0.tgz",
+      "integrity": "sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ==",
+      "hasInstallScript": true,
+      "license": "Apache-2.0"
+    },
+    "node_modules/@types/bcrypt": {
+      "version": "6.0.0",
+      "resolved": "https://registry.npmjs.org/@types/bcrypt/-/bcrypt-6.0.0.tgz",
+      "integrity": "sha512-/oJGukuH3D2+D+3H4JWLaAsJ/ji86dhRidzZ/Od7H/i8g+aCmvkeCc6Ni/f9uxGLSQVCRZkX2/lqEFG2BvWtlQ==",
+      "dev": true,
+      "dependencies": {
+        "@types/node": "*"
+      }
+    },
+    "node_modules/@types/body-parser": {
+      "version": "1.19.6",
+      "resolved": "https://registry.npmjs.org/@types/body-parser/-/body-parser-1.19.6.tgz",
+      "integrity": "sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/connect": "*",
+        "@types/node": "*"
+      }
+    },
+    "node_modules/@types/connect": {
+      "version": "3.4.38",
+      "resolved": "https://registry.npmjs.org/@types/connect/-/connect-3.4.38.tgz",
+      "integrity": "sha512-K6uROf1LD88uDQqJCktA4yzL1YYAK6NgfsI0v/mTgyPKWsX1CnJ0XPSDhViejru1GcRkLWb8RlzFYJRqGUbaug==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/node": "*"
+      }
+    },
+    "node_modules/@types/cors": {
+      "version": "2.8.19",
+      "resolved": "https://registry.npmjs.org/@types/cors/-/cors-2.8.19.tgz",
+      "integrity": "sha512-mFNylyeyqN93lfe/9CSxOGREz8cpzAhH+E93xJ4xWQf62V8sQ/24reV2nyzUWM6H6Xji+GGHpkbLe7pVoUEskg==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/node": "*"
+      }
+    },
+    "node_modules/@types/express": {
+      "version": "4.17.25",
+      "resolved": "https://registry.npmjs.org/@types/express/-/express-4.17.25.tgz",
+      "integrity": "sha512-dVd04UKsfpINUnK0yBoYHDF3xu7xVH4BuDotC/xGuycx4CgbP48X/KF/586bcObxT0HENHXEU8Nqtu6NR+eKhw==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/body-parser": "*",
+        "@types/express-serve-static-core": "^4.17.33",
+        "@types/qs": "*",
+        "@types/serve-static": "^1"
+      }
+    },
+    "node_modules/@types/express-serve-static-core": {
+      "version": "4.19.9",
+      "resolved": "https://registry.npmjs.org/@types/express-serve-static-core/-/express-serve-static-core-4.19.9.tgz",
+      "integrity": "sha512-QP2ESEe/ImWY0HDwNAnK9PvEffUyhLTnWkk7KXzHfyeWAnlrDe1fN77bXl6ia8KT3wPlmA7t9/VPRpnf4Ex9sg==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/node": "*",
+        "@types/qs": "*",
+        "@types/range-parser": "*",
+        "@types/send": "*"
+      }
+    },
+    "node_modules/@types/http-errors": {
+      "version": "2.0.5",
+      "resolved": "https://registry.npmjs.org/@types/http-errors/-/http-errors-2.0.5.tgz",
+      "integrity": "sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/@types/jsonwebtoken": {
+      "version": "9.0.10",
+      "resolved": "https://registry.npmjs.org/@types/jsonwebtoken/-/jsonwebtoken-9.0.10.tgz",
+      "integrity": "sha512-asx5hIG9Qmf/1oStypjanR7iKTv0gXQ1Ov/jfrX6kS/EO0OFni8orbmGCn0672NHR3kXHwpAwR+B368ZGN/2rA==",
+      "dev": true,
+      "dependencies": {
+        "@types/ms": "*",
+        "@types/node": "*"
+      }
+    },
+    "node_modules/@types/mime": {
+      "version": "1.3.5",
+      "resolved": "https://registry.npmjs.org/@types/mime/-/mime-1.3.5.tgz",
+      "integrity": "sha512-/pyBZWSLD2n0dcHE3hq8s8ZvcETHtEuF+3E7XVt0Ig2nvsVQXdghHVcEkIWjy9A0wKfTn97a/PSDYohKIlnP/w==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/@types/ms": {
+      "version": "2.1.0",
+      "resolved": "https://registry.npmjs.org/@types/ms/-/ms-2.1.0.tgz",
+      "integrity": "sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==",
+      "dev": true
+    },
+    "node_modules/@types/node": {
+      "version": "22.20.1",
+      "resolved": "https://registry.npmjs.org/@types/node/-/node-22.20.1.tgz",
+      "integrity": "sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "undici-types": "~6.21.0"
+      }
+    },
+    "node_modules/@types/oracledb": {
+      "version": "6.10.4",
+      "resolved": "https://registry.npmjs.org/@types/oracledb/-/oracledb-6.10.4.tgz",
+      "integrity": "sha512-VztLwr8PQsStRD5MEr6FVRv9LN+JeeTrTGVUFenAmTP/8X+mfNYwz02qvMc8B41CVeDdR3enQhaWmT9iBgNJSA==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/node": "*"
+      }
+    },
+    "node_modules/@types/qs": {
+      "version": "6.15.1",
+      "resolved": "https://registry.npmjs.org/@types/qs/-/qs-6.15.1.tgz",
+      "integrity": "sha512-GZHUBZR9hckSUhrxmp1nG6NwdpM9fCunJwyThLW1X3AyHgd9IlHb6VANpQQqDr2o/qQp6McZ3y/IA2rVzKzSbw==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/@types/range-parser": {
+      "version": "1.2.7",
+      "resolved": "https://registry.npmjs.org/@types/range-parser/-/range-parser-1.2.7.tgz",
+      "integrity": "sha512-hKormJbkJqzQGhziax5PItDUTMAM9uE2XXQmM37dyd4hVM+5aVl7oVxMVUiVQn2oCQFN/LKCZdvSM0pFRqbSmQ==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/@types/send": {
+      "version": "1.2.1",
+      "resolved": "https://registry.npmjs.org/@types/send/-/send-1.2.1.tgz",
+      "integrity": "sha512-arsCikDvlU99zl1g69TcAB3mzZPpxgw0UQnaHeC1Nwb015xp8bknZv5rIfri9xTOcMuaVgvabfIRA7PSZVuZIQ==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/node": "*"
+      }
+    },
+    "node_modules/@types/serve-static": {
+      "version": "1.15.10",
+      "resolved": "https://registry.npmjs.org/@types/serve-static/-/serve-static-1.15.10.tgz",
+      "integrity": "sha512-tRs1dB+g8Itk72rlSI2ZrW6vZg0YrLI81iQSTkMmOqnqCaNr/8Ek4VwWcN5vZgCYWbg/JJSGBlUaYGAOP73qBw==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/http-errors": "*",
+        "@types/node": "*",
+        "@types/send": "<1"
+      }
+    },
+    "node_modules/@types/serve-static/node_modules/@types/send": {
+      "version": "0.17.6",
+      "resolved": "https://registry.npmjs.org/@types/send/-/send-0.17.6.tgz",
+      "integrity": "sha512-Uqt8rPBE8SY0RK8JB1EzVOIZ32uqy8HwdxCnoCOsYrvnswqmFZ/k+9Ikidlk/ImhsdvBsloHbAlewb2IEBV/Og==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/mime": "^1",
+        "@types/node": "*"
+      }
+    },
+    "node_modules/@types/swagger-ui-express": {
+      "version": "4.1.8",
+      "resolved": "https://registry.npmjs.org/@types/swagger-ui-express/-/swagger-ui-express-4.1.8.tgz",
+      "integrity": "sha512-AhZV8/EIreHFmBV5wAs0gzJUNq9JbbSXgJLQubCC0jtIo6prnI9MIRRxnU4MZX9RB9yXxF1V4R7jtLl/Wcj31g==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@types/express": "*",
+        "@types/serve-static": "*"
+      }
+    },
+    "node_modules/@types/yamljs": {
+      "version": "0.2.34",
+      "resolved": "https://registry.npmjs.org/@types/yamljs/-/yamljs-0.2.34.tgz",
+      "integrity": "sha512-gJvfRlv9ErxdOv7ux7UsJVePtX54NAvQyd8ncoiFqK8G5aeHIfQfGH2fbruvjAQ9657HwAaO54waS+Dsk2QTUQ==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/accepts": {
+      "version": "1.3.8",
+      "resolved": "https://registry.npmjs.org/accepts/-/accepts-1.3.8.tgz",
+      "integrity": "sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==",
+      "license": "MIT",
+      "dependencies": {
+        "mime-types": "~2.1.34",
+        "negotiator": "0.6.3"
+      },
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/argparse": {
+      "version": "1.0.10",
+      "resolved": "https://registry.npmjs.org/argparse/-/argparse-1.0.10.tgz",
+      "integrity": "sha512-o5Roy6tNG4SL/FOkCAN6RzjiakZS25RLYFrcMttJqbdd8BWrnA+fGz57iN5Pb06pvBGvl5gQ0B48dJlslXvoTg==",
+      "license": "MIT",
+      "dependencies": {
+        "sprintf-js": "~1.0.2"
+      }
+    },
+    "node_modules/array-flatten": {
+      "version": "1.1.1",
+      "resolved": "https://registry.npmjs.org/array-flatten/-/array-flatten-1.1.1.tgz",
+      "integrity": "sha512-PCVAQswWemu6UdxsDFFX/+gVeYqKAod3D3UVm91jHwynguOwAvYPhx8nNlM++NqRcK6CxxpUafjmhIdKiHibqg==",
+      "license": "MIT"
+    },
+    "node_modules/balanced-match": {
+      "version": "1.0.2",
+      "resolved": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
+      "integrity": "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==",
+      "license": "MIT"
+    },
+    "node_modules/bcrypt": {
+      "version": "6.0.0",
+      "resolved": "https://registry.npmjs.org/bcrypt/-/bcrypt-6.0.0.tgz",
+      "integrity": "sha512-cU8v/EGSrnH+HnxV2z0J7/blxH8gq7Xh2JFT6Aroax7UohdmiJJlxApMxtKfuI7z68NvvVcmR78k2LbT6efhRg==",
+      "hasInstallScript": true,
+      "dependencies": {
+        "node-addon-api": "^8.3.0",
+        "node-gyp-build": "^4.8.4"
+      },
+      "engines": {
+        "node": ">= 18"
+      }
+    },
+    "node_modules/body-parser": {
+      "version": "1.20.6",
+      "resolved": "https://registry.npmjs.org/body-parser/-/body-parser-1.20.6.tgz",
+      "integrity": "sha512-p5tAzS57i5MV9fZFDj9LeIiTZEufbSe2eDozP+ElheSUq1m74CRq1jI4mYNDdVs9vQztXFLuk/Gd6BWTdwRJ5g==",
+      "license": "MIT",
+      "dependencies": {
+        "bytes": "~3.1.2",
+        "content-type": "~1.0.5",
+        "debug": "2.6.9",
+        "depd": "2.0.0",
+        "destroy": "~1.2.0",
+        "http-errors": "~2.0.1",
+        "iconv-lite": "~0.4.24",
+        "on-finished": "~2.4.1",
+        "qs": "~6.15.1",
+        "raw-body": "~2.5.3",
+        "type-is": "~1.6.18",
+        "unpipe": "~1.0.0"
+      },
+      "engines": {
+        "node": ">= 0.8",
+        "npm": "1.2.8000 || >= 1.4.16"
+      }
+    },
+    "node_modules/brace-expansion": {
+      "version": "1.1.18",
+      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.18.tgz",
+      "integrity": "sha512-Edep/X9fGqVNmzKBVsDYIOtD+z1tuezV70LBjdCst9Tqu76lsnvRiZ6oTic1n+/BIwX6QDGAO94PN4N2SADvtw==",
+      "license": "MIT",
+      "dependencies": {
+        "balanced-match": "^1.0.0",
+        "concat-map": "0.0.1"
+      }
+    },
+    "node_modules/buffer-equal-constant-time": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/buffer-equal-constant-time/-/buffer-equal-constant-time-1.0.1.tgz",
+      "integrity": "sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA=="
+    },
+    "node_modules/bytes": {
+      "version": "3.1.2",
+      "resolved": "https://registry.npmjs.org/bytes/-/bytes-3.1.2.tgz",
+      "integrity": "sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/call-bind-apply-helpers": {
+      "version": "1.0.2",
+      "resolved": "https://registry.npmjs.org/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz",
+      "integrity": "sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==",
+      "license": "MIT",
+      "dependencies": {
+        "es-errors": "^1.3.0",
+        "function-bind": "^1.1.2"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/call-bound": {
+      "version": "1.0.4",
+      "resolved": "https://registry.npmjs.org/call-bound/-/call-bound-1.0.4.tgz",
+      "integrity": "sha512-+ys997U96po4Kx/ABpBCqhA9EuxJaQWDQg7295H4hBphv3IZg0boBKuwYpt4YXp6MZ5AmZQnU/tyMTlRpaSejg==",
+      "license": "MIT",
+      "dependencies": {
+        "call-bind-apply-helpers": "^1.0.2",
+        "get-intrinsic": "^1.3.0"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/concat-map": {
+      "version": "0.0.1",
+      "resolved": "https://registry.npmjs.org/concat-map/-/concat-map-0.0.1.tgz",
+      "integrity": "sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==",
+      "license": "MIT"
+    },
+    "node_modules/content-disposition": {
+      "version": "0.5.4",
+      "resolved": "https://registry.npmjs.org/content-disposition/-/content-disposition-0.5.4.tgz",
+      "integrity": "sha512-FveZTNuGw04cxlAiWbzi6zTAL/lhehaWbTtgluJh4/E95DqMwTmha3KZN1aAWA8cFIhHzMZUvLevkw5Rqk+tSQ==",
+      "license": "MIT",
+      "dependencies": {
+        "safe-buffer": "5.2.1"
+      },
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/content-type": {
+      "version": "1.0.5",
+      "resolved": "https://registry.npmjs.org/content-type/-/content-type-1.0.5.tgz",
+      "integrity": "sha512-nTjqfcBFEipKdXCv4YDQWCfmcLZKm81ldF0pAopTvyrFGVbcR6P/VAAd5G7N+0tTr8QqiU0tFadD6FK4NtJwOA==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/cookie": {
+      "version": "0.7.2",
+      "resolved": "https://registry.npmjs.org/cookie/-/cookie-0.7.2.tgz",
+      "integrity": "sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/cookie-signature": {
+      "version": "1.0.7",
+      "resolved": "https://registry.npmjs.org/cookie-signature/-/cookie-signature-1.0.7.tgz",
+      "integrity": "sha512-NXdYc3dLr47pBkpUCHtKSwIOQXLVn8dZEuywboCOJY/osA0wFSLlSawr3KN8qXJEyX66FcONTH8EIlVuK0yyFA==",
+      "license": "MIT"
+    },
+    "node_modules/cors": {
+      "version": "2.8.6",
+      "resolved": "https://registry.npmjs.org/cors/-/cors-2.8.6.tgz",
+      "integrity": "sha512-tJtZBBHA6vjIAaF6EnIaq6laBBP9aq/Y3ouVJjEfoHbRBcHBAHYcMh/w8LDrk2PvIMMq8gmopa5D4V8RmbrxGw==",
+      "license": "MIT",
+      "dependencies": {
+        "object-assign": "^4",
+        "vary": "^1"
+      },
+      "engines": {
+        "node": ">= 0.10"
+      },
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/express"
+      }
+    },
+    "node_modules/debug": {
+      "version": "2.6.9",
+      "resolved": "https://registry.npmjs.org/debug/-/debug-2.6.9.tgz",
+      "integrity": "sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==",
+      "license": "MIT",
+      "dependencies": {
+        "ms": "2.0.0"
+      }
+    },
+    "node_modules/depd": {
+      "version": "2.0.0",
+      "resolved": "https://registry.npmjs.org/depd/-/depd-2.0.0.tgz",
+      "integrity": "sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/destroy": {
+      "version": "1.2.0",
+      "resolved": "https://registry.npmjs.org/destroy/-/destroy-1.2.0.tgz",
+      "integrity": "sha512-2sJGJTaXIIaR1w4iJSNoN0hnMY7Gpc/n8D4qSCJw8QqFWXf7cuAgnEHxBpweaVcPevC2l3KpjYCx3NypQQgaJg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8",
+        "npm": "1.2.8000 || >= 1.4.16"
+      }
+    },
+    "node_modules/dotenv": {
+      "version": "16.6.1",
+      "resolved": "https://registry.npmjs.org/dotenv/-/dotenv-16.6.1.tgz",
+      "integrity": "sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==",
+      "license": "BSD-2-Clause",
+      "engines": {
+        "node": ">=12"
+      },
+      "funding": {
+        "url": "https://dotenvx.com"
+      }
+    },
+    "node_modules/dunder-proto": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz",
+      "integrity": "sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==",
+      "license": "MIT",
+      "dependencies": {
+        "call-bind-apply-helpers": "^1.0.1",
+        "es-errors": "^1.3.0",
+        "gopd": "^1.2.0"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/ecdsa-sig-formatter": {
+      "version": "1.0.11",
+      "resolved": "https://registry.npmjs.org/ecdsa-sig-formatter/-/ecdsa-sig-formatter-1.0.11.tgz",
+      "integrity": "sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==",
+      "dependencies": {
+        "safe-buffer": "^5.0.1"
+      }
+    },
+    "node_modules/ee-first": {
+      "version": "1.1.1",
+      "resolved": "https://registry.npmjs.org/ee-first/-/ee-first-1.1.1.tgz",
+      "integrity": "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==",
+      "license": "MIT"
+    },
+    "node_modules/encodeurl": {
+      "version": "2.0.0",
+      "resolved": "https://registry.npmjs.org/encodeurl/-/encodeurl-2.0.0.tgz",
+      "integrity": "sha512-Q0n9HRi4m6JuGIV1eFlmvJB7ZEVxu93IrMyiMsGC0lrMJMWzRgx6WGquyfQgZVb31vhGgXnfmPNNXmxnOkRBrg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/es-define-property": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/es-define-property/-/es-define-property-1.0.1.tgz",
+      "integrity": "sha512-e3nRfgfUZ4rNGL232gUgX06QNyyez04KdjFrF+LTRoOXmrOgFKDg4BCdsjW8EnT69eqdYGmRpJwiPVYNrCaW3g==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/es-errors": {
+      "version": "1.3.0",
+      "resolved": "https://registry.npmjs.org/es-errors/-/es-errors-1.3.0.tgz",
+      "integrity": "sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/es-object-atoms": {
+      "version": "1.1.2",
+      "resolved": "https://registry.npmjs.org/es-object-atoms/-/es-object-atoms-1.1.2.tgz",
+      "integrity": "sha512-HWcBoN6NileqtSydK2FqHbS/LoDd2pqrnQHLyJzBj4kOp/ky2MWMN694xOfkK8/SnUsW2DH7EfyVlydKCsm1Zw==",
+      "license": "MIT",
+      "dependencies": {
+        "es-errors": "^1.3.0"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/esbuild": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/esbuild/-/esbuild-0.28.2.tgz",
+      "integrity": "sha512-HKVLS8dvII+xoKW9kmqxbRKrnWEXfJJr/FZhhJmiqIB0e053QNYFqOBouTMO/k5sID4MvCiUCvv8b9M4h32wIA==",
+      "dev": true,
+      "hasInstallScript": true,
+      "license": "MIT",
+      "bin": {
+        "esbuild": "bin/esbuild"
+      },
+      "engines": {
+        "node": ">=18"
+      },
+      "optionalDependencies": {
+        "@esbuild/aix-ppc64": "0.28.2",
+        "@esbuild/android-arm": "0.28.2",
+        "@esbuild/android-arm64": "0.28.2",
+        "@esbuild/android-x64": "0.28.2",
+        "@esbuild/darwin-arm64": "0.28.2",
+        "@esbuild/darwin-x64": "0.28.2",
+        "@esbuild/freebsd-arm64": "0.28.2",
+        "@esbuild/freebsd-x64": "0.28.2",
+        "@esbuild/linux-arm": "0.28.2",
+        "@esbuild/linux-arm64": "0.28.2",
+        "@esbuild/linux-ia32": "0.28.2",
+        "@esbuild/linux-loong64": "0.28.2",
+        "@esbuild/linux-mips64el": "0.28.2",
+        "@esbuild/linux-ppc64": "0.28.2",
+        "@esbuild/linux-riscv64": "0.28.2",
+        "@esbuild/linux-s390x": "0.28.2",
+        "@esbuild/linux-x64": "0.28.2",
+        "@esbuild/netbsd-arm64": "0.28.2",
+        "@esbuild/netbsd-x64": "0.28.2",
+        "@esbuild/openbsd-arm64": "0.28.2",
+        "@esbuild/openbsd-x64": "0.28.2",
+        "@esbuild/openharmony-arm64": "0.28.2",
+        "@esbuild/sunos-x64": "0.28.2",
+        "@esbuild/win32-arm64": "0.28.2",
+        "@esbuild/win32-ia32": "0.28.2",
+        "@esbuild/win32-x64": "0.28.2"
+      }
+    },
+    "node_modules/escape-html": {
+      "version": "1.0.3",
+      "resolved": "https://registry.npmjs.org/escape-html/-/escape-html-1.0.3.tgz",
+      "integrity": "sha512-NiSupZ4OeuGwr68lGIeym/ksIZMJodUGOSCZ/FSnTxcrekbvqrgdUxlJOMpijaKZVjAJrWrGs/6Jy8OMuyj9ow==",
+      "license": "MIT"
+    },
+    "node_modules/etag": {
+      "version": "1.8.1",
+      "resolved": "https://registry.npmjs.org/etag/-/etag-1.8.1.tgz",
+      "integrity": "sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/express": {
+      "version": "4.22.2",
+      "resolved": "https://registry.npmjs.org/express/-/express-4.22.2.tgz",
+      "integrity": "sha512-IuL+Elrou2ZvCFHs18/CIzy2Nzvo25nZ1/D2eIZlz7c+QUayAcYoiM2BthCjs+EBHVpjYjcuLDAiCWgeIX3X1Q==",
+      "license": "MIT",
+      "dependencies": {
+        "accepts": "~1.3.8",
+        "array-flatten": "1.1.1",
+        "body-parser": "~1.20.5",
+        "content-disposition": "~0.5.4",
+        "content-type": "~1.0.4",
+        "cookie": "~0.7.1",
+        "cookie-signature": "~1.0.6",
+        "debug": "2.6.9",
+        "depd": "2.0.0",
+        "encodeurl": "~2.0.0",
+        "escape-html": "~1.0.3",
+        "etag": "~1.8.1",
+        "finalhandler": "~1.3.1",
+        "fresh": "~0.5.2",
+        "http-errors": "~2.0.0",
+        "merge-descriptors": "1.0.3",
+        "methods": "~1.1.2",
+        "on-finished": "~2.4.1",
+        "parseurl": "~1.3.3",
+        "path-to-regexp": "~0.1.12",
+        "proxy-addr": "~2.0.7",
+        "qs": "~6.15.1",
+        "range-parser": "~1.2.1",
+        "safe-buffer": "5.2.1",
+        "send": "~0.19.0",
+        "serve-static": "~1.16.2",
+        "setprototypeof": "1.2.0",
+        "statuses": "~2.0.1",
+        "type-is": "~1.6.18",
+        "utils-merge": "1.0.1",
+        "vary": "~1.1.2"
+      },
+      "engines": {
+        "node": ">= 0.10.0"
+      },
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/express"
+      }
+    },
+    "node_modules/finalhandler": {
+      "version": "1.3.2",
+      "resolved": "https://registry.npmjs.org/finalhandler/-/finalhandler-1.3.2.tgz",
+      "integrity": "sha512-aA4RyPcd3badbdABGDuTXCMTtOneUCAYH/gxoYRTZlIJdF0YPWuGqiAsIrhNnnqdXGswYk6dGujem4w80UJFhg==",
+      "license": "MIT",
+      "dependencies": {
+        "debug": "2.6.9",
+        "encodeurl": "~2.0.0",
+        "escape-html": "~1.0.3",
+        "on-finished": "~2.4.1",
+        "parseurl": "~1.3.3",
+        "statuses": "~2.0.2",
+        "unpipe": "~1.0.0"
+      },
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/forwarded": {
+      "version": "0.2.0",
+      "resolved": "https://registry.npmjs.org/forwarded/-/forwarded-0.2.0.tgz",
+      "integrity": "sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/fresh": {
+      "version": "0.5.2",
+      "resolved": "https://registry.npmjs.org/fresh/-/fresh-0.5.2.tgz",
+      "integrity": "sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/fs.realpath": {
+      "version": "1.0.0",
+      "resolved": "https://registry.npmjs.org/fs.realpath/-/fs.realpath-1.0.0.tgz",
+      "integrity": "sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw==",
+      "license": "ISC"
+    },
+    "node_modules/fsevents": {
+      "version": "2.3.3",
+      "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+      "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
+      "dev": true,
+      "hasInstallScript": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
+      }
+    },
+    "node_modules/function-bind": {
+      "version": "1.1.2",
+      "resolved": "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz",
+      "integrity": "sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==",
+      "license": "MIT",
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/get-intrinsic": {
+      "version": "1.3.0",
+      "resolved": "https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.3.0.tgz",
+      "integrity": "sha512-9fSjSaos/fRIVIp+xSJlE6lfwhES7LNtKaCBIamHsjr2na1BiABJPo0mOjjz8GJDURarmCPGqaiVg5mfjb98CQ==",
+      "license": "MIT",
+      "dependencies": {
+        "call-bind-apply-helpers": "^1.0.2",
+        "es-define-property": "^1.0.1",
+        "es-errors": "^1.3.0",
+        "es-object-atoms": "^1.1.1",
+        "function-bind": "^1.1.2",
+        "get-proto": "^1.0.1",
+        "gopd": "^1.2.0",
+        "has-symbols": "^1.1.0",
+        "hasown": "^2.0.2",
+        "math-intrinsics": "^1.1.0"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/get-proto": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/get-proto/-/get-proto-1.0.1.tgz",
+      "integrity": "sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==",
+      "license": "MIT",
+      "dependencies": {
+        "dunder-proto": "^1.0.1",
+        "es-object-atoms": "^1.0.0"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/glob": {
+      "version": "7.2.3",
+      "resolved": "https://registry.npmjs.org/glob/-/glob-7.2.3.tgz",
+      "integrity": "sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==",
+      "deprecated": "Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me",
+      "license": "ISC",
+      "dependencies": {
+        "fs.realpath": "^1.0.0",
+        "inflight": "^1.0.4",
+        "inherits": "2",
+        "minimatch": "^3.1.1",
+        "once": "^1.3.0",
+        "path-is-absolute": "^1.0.0"
+      },
+      "engines": {
+        "node": "*"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/isaacs"
+      }
+    },
+    "node_modules/gopd": {
+      "version": "1.2.0",
+      "resolved": "https://registry.npmjs.org/gopd/-/gopd-1.2.0.tgz",
+      "integrity": "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/has-symbols": {
+      "version": "1.1.0",
+      "resolved": "https://registry.npmjs.org/has-symbols/-/has-symbols-1.1.0.tgz",
+      "integrity": "sha512-1cDNdwJ2Jaohmb3sg4OmKaMBwuC48sYni5HUw2DvsC8LjGTLK9h+eb1X6RyuOHe4hT0ULCW68iomhjUoKUqlPQ==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/hasown": {
+      "version": "2.0.4",
+      "resolved": "https://registry.npmjs.org/hasown/-/hasown-2.0.4.tgz",
+      "integrity": "sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A==",
+      "license": "MIT",
+      "dependencies": {
+        "function-bind": "^1.1.2"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/http-errors": {
+      "version": "2.0.1",
+      "resolved": "https://registry.npmjs.org/http-errors/-/http-errors-2.0.1.tgz",
+      "integrity": "sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==",
+      "license": "MIT",
+      "dependencies": {
+        "depd": "~2.0.0",
+        "inherits": "~2.0.4",
+        "setprototypeof": "~1.2.0",
+        "statuses": "~2.0.2",
+        "toidentifier": "~1.0.1"
+      },
+      "engines": {
+        "node": ">= 0.8"
+      },
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/express"
+      }
+    },
+    "node_modules/iconv-lite": {
+      "version": "0.4.24",
+      "resolved": "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.4.24.tgz",
+      "integrity": "sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==",
+      "license": "MIT",
+      "dependencies": {
+        "safer-buffer": ">= 2.1.2 < 3"
+      },
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/inflight": {
+      "version": "1.0.6",
+      "resolved": "https://registry.npmjs.org/inflight/-/inflight-1.0.6.tgz",
+      "integrity": "sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==",
+      "deprecated": "This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.",
+      "license": "ISC",
+      "dependencies": {
+        "once": "^1.3.0",
+        "wrappy": "1"
+      }
+    },
+    "node_modules/inherits": {
+      "version": "2.0.4",
+      "resolved": "https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz",
+      "integrity": "sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==",
+      "license": "ISC"
+    },
+    "node_modules/ipaddr.js": {
+      "version": "1.9.1",
+      "resolved": "https://registry.npmjs.org/ipaddr.js/-/ipaddr.js-1.9.1.tgz",
+      "integrity": "sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.10"
+      }
+    },
+    "node_modules/jsonwebtoken": {
+      "version": "9.0.3",
+      "resolved": "https://registry.npmjs.org/jsonwebtoken/-/jsonwebtoken-9.0.3.tgz",
+      "integrity": "sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==",
+      "dependencies": {
+        "jws": "^4.0.1",
+        "lodash.includes": "^4.3.0",
+        "lodash.isboolean": "^3.0.3",
+        "lodash.isinteger": "^4.0.4",
+        "lodash.isnumber": "^3.0.3",
+        "lodash.isplainobject": "^4.0.6",
+        "lodash.isstring": "^4.0.1",
+        "lodash.once": "^4.0.0",
+        "ms": "^2.1.1",
+        "semver": "^7.5.4"
+      },
+      "engines": {
+        "node": ">=12",
+        "npm": ">=6"
+      }
+    },
+    "node_modules/jsonwebtoken/node_modules/ms": {
+      "version": "2.1.3",
+      "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+      "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="
+    },
+    "node_modules/jwa": {
+      "version": "2.0.1",
+      "resolved": "https://registry.npmjs.org/jwa/-/jwa-2.0.1.tgz",
+      "integrity": "sha512-hRF04fqJIP8Abbkq5NKGN0Bbr3JxlQ+qhZufXVr0DvujKy93ZCbXZMHDL4EOtodSbCWxOqR8MS1tXA5hwqCXDg==",
+      "dependencies": {
+        "buffer-equal-constant-time": "^1.0.1",
+        "ecdsa-sig-formatter": "1.0.11",
+        "safe-buffer": "^5.0.1"
+      }
+    },
+    "node_modules/jws": {
+      "version": "4.0.1",
+      "resolved": "https://registry.npmjs.org/jws/-/jws-4.0.1.tgz",
+      "integrity": "sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==",
+      "dependencies": {
+        "jwa": "^2.0.1",
+        "safe-buffer": "^5.0.1"
+      }
+    },
+    "node_modules/lodash.includes": {
+      "version": "4.3.0",
+      "resolved": "https://registry.npmjs.org/lodash.includes/-/lodash.includes-4.3.0.tgz",
+      "integrity": "sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w=="
+    },
+    "node_modules/lodash.isboolean": {
+      "version": "3.0.3",
+      "resolved": "https://registry.npmjs.org/lodash.isboolean/-/lodash.isboolean-3.0.3.tgz",
+      "integrity": "sha512-Bz5mupy2SVbPHURB98VAcw+aHh4vRV5IPNhILUCsOzRmsTmSQ17jIuqopAentWoehktxGd9e/hbIXq980/1QJg=="
+    },
+    "node_modules/lodash.isinteger": {
+      "version": "4.0.4",
+      "resolved": "https://registry.npmjs.org/lodash.isinteger/-/lodash.isinteger-4.0.4.tgz",
+      "integrity": "sha512-DBwtEWN2caHQ9/imiNeEA5ys1JoRtRfY3d7V9wkqtbycnAmTvRRmbHKDV4a0EYc678/dia0jrte4tjYwVBaZUA=="
+    },
+    "node_modules/lodash.isnumber": {
+      "version": "3.0.3",
+      "resolved": "https://registry.npmjs.org/lodash.isnumber/-/lodash.isnumber-3.0.3.tgz",
+      "integrity": "sha512-QYqzpfwO3/CWf3XP+Z+tkQsfaLL/EnUlXWVkIk5FUPc4sBdTehEqZONuyRt2P67PXAk+NXmTBcc97zw9t1FQrw=="
+    },
+    "node_modules/lodash.isplainobject": {
+      "version": "4.0.6",
+      "resolved": "https://registry.npmjs.org/lodash.isplainobject/-/lodash.isplainobject-4.0.6.tgz",
+      "integrity": "sha512-oSXzaWypCMHkPC3NvBEaPHf0KsA5mvPrOPgQWDsbg8n7orZ290M0BmC/jgRZ4vcJ6DTAhjrsSYgdsW/F+MFOBA=="
+    },
+    "node_modules/lodash.isstring": {
+      "version": "4.0.1",
+      "resolved": "https://registry.npmjs.org/lodash.isstring/-/lodash.isstring-4.0.1.tgz",
+      "integrity": "sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw=="
+    },
+    "node_modules/lodash.once": {
+      "version": "4.1.1",
+      "resolved": "https://registry.npmjs.org/lodash.once/-/lodash.once-4.1.1.tgz",
+      "integrity": "sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg=="
+    },
+    "node_modules/math-intrinsics": {
+      "version": "1.1.0",
+      "resolved": "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz",
+      "integrity": "sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/media-typer": {
+      "version": "0.3.0",
+      "resolved": "https://registry.npmjs.org/media-typer/-/media-typer-0.3.0.tgz",
+      "integrity": "sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/merge-descriptors": {
+      "version": "1.0.3",
+      "resolved": "https://registry.npmjs.org/merge-descriptors/-/merge-descriptors-1.0.3.tgz",
+      "integrity": "sha512-gaNvAS7TZ897/rVaZ0nMtAyxNyi/pdbjbAwUpFQpN70GqnVfOiXpeUUMKRBmzXaSQ8DdTX4/0ms62r2K+hE6mQ==",
+      "license": "MIT",
+      "funding": {
+        "url": "https://github.com/sponsors/sindresorhus"
+      }
+    },
+    "node_modules/methods": {
+      "version": "1.1.2",
+      "resolved": "https://registry.npmjs.org/methods/-/methods-1.1.2.tgz",
+      "integrity": "sha512-iclAHeNqNm68zFtnZ0e+1L2yUIdvzNoauKU4WBA3VvH/vPFieF7qfRlwUZU+DA9P9bPXIS90ulxoUoCH23sV2w==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/mime-db": {
+      "version": "1.52.0",
+      "resolved": "https://registry.npmjs.org/mime-db/-/mime-db-1.52.0.tgz",
+      "integrity": "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/mime-types": {
+      "version": "2.1.35",
+      "resolved": "https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz",
+      "integrity": "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw==",
+      "license": "MIT",
+      "dependencies": {
+        "mime-db": "1.52.0"
+      },
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/minimatch": {
+      "version": "3.1.5",
+      "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.5.tgz",
+      "integrity": "sha512-VgjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w==",
+      "license": "ISC",
+      "dependencies": {
+        "brace-expansion": "^1.1.7"
+      },
+      "engines": {
+        "node": "*"
+      }
+    },
+    "node_modules/ms": {
+      "version": "2.0.0",
+      "resolved": "https://registry.npmjs.org/ms/-/ms-2.0.0.tgz",
+      "integrity": "sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A==",
+      "license": "MIT"
+    },
+    "node_modules/negotiator": {
+      "version": "0.6.3",
+      "resolved": "https://registry.npmjs.org/negotiator/-/negotiator-0.6.3.tgz",
+      "integrity": "sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/node-addon-api": {
+      "version": "8.9.2",
+      "resolved": "https://registry.npmjs.org/node-addon-api/-/node-addon-api-8.9.2.tgz",
+      "integrity": "sha512-VijLXbi3UACN69I0JVXJsX4tjACjNoQDgv2gTF6sx2wWEi8tkSg2eX8p5gSIFi8z2+DL3oHmY6OyKce38SDolg==",
+      "engines": {
+        "node": "^18 || ^20 || >= 21"
+      }
+    },
+    "node_modules/node-gyp-build": {
+      "version": "4.8.4",
+      "resolved": "https://registry.npmjs.org/node-gyp-build/-/node-gyp-build-4.8.4.tgz",
+      "integrity": "sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==",
+      "bin": {
+        "node-gyp-build": "bin.js",
+        "node-gyp-build-optional": "optional.js",
+        "node-gyp-build-test": "build-test.js"
+      }
+    },
+    "node_modules/object-assign": {
+      "version": "4.1.1",
+      "resolved": "https://registry.npmjs.org/object-assign/-/object-assign-4.1.1.tgz",
+      "integrity": "sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/object-inspect": {
+      "version": "1.13.4",
+      "resolved": "https://registry.npmjs.org/object-inspect/-/object-inspect-1.13.4.tgz",
+      "integrity": "sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/on-finished": {
+      "version": "2.4.1",
+      "resolved": "https://registry.npmjs.org/on-finished/-/on-finished-2.4.1.tgz",
+      "integrity": "sha512-oVlzkg3ENAhCk2zdv7IJwd/QUD4z2RxRwpkcGY8psCVcCYZNq4wYnVWALHM+brtuJjePWiYF/ClmuDr8Ch5+kg==",
+      "license": "MIT",
+      "dependencies": {
+        "ee-first": "1.1.1"
+      },
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/once": {
+      "version": "1.4.0",
+      "resolved": "https://registry.npmjs.org/once/-/once-1.4.0.tgz",
+      "integrity": "sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==",
+      "license": "ISC",
+      "dependencies": {
+        "wrappy": "1"
+      }
+    },
+    "node_modules/oracledb": {
+      "version": "6.10.0",
+      "resolved": "https://registry.npmjs.org/oracledb/-/oracledb-6.10.0.tgz",
+      "integrity": "sha512-kGUumXmrEWbSpBuKJyb9Ip3rXcNgKK6grunI3/cLPzrRvboZ6ZoLi9JQ+z6M/RIG924tY8BLflihL4CKKQAYMA==",
+      "hasInstallScript": true,
+      "license": "(Apache-2.0 OR UPL-1.0)",
+      "engines": {
+        "node": ">=14.17"
+      }
+    },
+    "node_modules/parseurl": {
+      "version": "1.3.3",
+      "resolved": "https://registry.npmjs.org/parseurl/-/parseurl-1.3.3.tgz",
+      "integrity": "sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/path-is-absolute": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/path-is-absolute/-/path-is-absolute-1.0.1.tgz",
+      "integrity": "sha512-AVbw3UJ2e9bq64vSaS9Am0fje1Pa8pbGqTTsmXfaIiMpnr5DlDhfJOuLj9Sf95ZPVDAUerDfEk88MPmPe7UCQg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/path-to-regexp": {
+      "version": "0.1.13",
+      "resolved": "https://registry.npmjs.org/path-to-regexp/-/path-to-regexp-0.1.13.tgz",
+      "integrity": "sha512-A/AGNMFN3c8bOlvV9RreMdrv7jsmF9XIfDeCd87+I8RNg6s78BhJxMu69NEMHBSJFxKidViTEdruRwEk/WIKqA==",
+      "license": "MIT"
+    },
+    "node_modules/proxy-addr": {
+      "version": "2.0.7",
+      "resolved": "https://registry.npmjs.org/proxy-addr/-/proxy-addr-2.0.7.tgz",
+      "integrity": "sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==",
+      "license": "MIT",
+      "dependencies": {
+        "forwarded": "0.2.0",
+        "ipaddr.js": "1.9.1"
+      },
+      "engines": {
+        "node": ">= 0.10"
+      }
+    },
+    "node_modules/qs": {
+      "version": "6.15.3",
+      "resolved": "https://registry.npmjs.org/qs/-/qs-6.15.3.tgz",
+      "integrity": "sha512-O9gl3zCl5h5blw1KGUzQKhA5oUXSl8rwUIM5o0S3nCXMliSvy5Dzx7/DJcI+SwgICv+IneSZwhBh1oSyEHA71A==",
+      "license": "BSD-3-Clause",
+      "dependencies": {
+        "es-define-property": "^1.0.1",
+        "side-channel": "^1.1.1"
+      },
+      "engines": {
+        "node": ">=0.6"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/range-parser": {
+      "version": "1.2.1",
+      "resolved": "https://registry.npmjs.org/range-parser/-/range-parser-1.2.1.tgz",
+      "integrity": "sha512-Hrgsx+orqoygnmhFbKaHE6c296J+HTAQXoxEF6gNupROmmGJRoyzfG3ccAveqCBrwr/2yxQ5BVd/GTl5agOwSg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/raw-body": {
+      "version": "2.5.3",
+      "resolved": "https://registry.npmjs.org/raw-body/-/raw-body-2.5.3.tgz",
+      "integrity": "sha512-s4VSOf6yN0rvbRZGxs8Om5CWj6seneMwK3oDb4lWDH0UPhWcxwOWw5+qk24bxq87szX1ydrwylIOp2uG1ojUpA==",
+      "license": "MIT",
+      "dependencies": {
+        "bytes": "~3.1.2",
+        "http-errors": "~2.0.1",
+        "iconv-lite": "~0.4.24",
+        "unpipe": "~1.0.0"
+      },
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/safe-buffer": {
+      "version": "5.2.1",
+      "resolved": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz",
+      "integrity": "sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==",
+      "funding": [
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/feross"
+        },
+        {
+          "type": "patreon",
+          "url": "https://www.patreon.com/feross"
+        },
+        {
+          "type": "consulting",
+          "url": "https://feross.org/support"
+        }
+      ],
+      "license": "MIT"
+    },
+    "node_modules/safer-buffer": {
+      "version": "2.1.2",
+      "resolved": "https://registry.npmjs.org/safer-buffer/-/safer-buffer-2.1.2.tgz",
+      "integrity": "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==",
+      "license": "MIT"
+    },
+    "node_modules/semver": {
+      "version": "7.8.5",
+      "resolved": "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz",
+      "integrity": "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==",
+      "bin": {
+        "semver": "bin/semver.js"
+      },
+      "engines": {
+        "node": ">=10"
+      }
+    },
+    "node_modules/send": {
+      "version": "0.19.2",
+      "resolved": "https://registry.npmjs.org/send/-/send-0.19.2.tgz",
+      "integrity": "sha512-VMbMxbDeehAxpOtWJXlcUS5E8iXh6QmN+BkRX1GARS3wRaXEEgzCcB10gTQazO42tpNIya8xIyNx8fll1OFPrg==",
+      "license": "MIT",
+      "dependencies": {
+        "debug": "2.6.9",
+        "depd": "2.0.0",
+        "destroy": "1.2.0",
+        "encodeurl": "~2.0.0",
+        "escape-html": "~1.0.3",
+        "etag": "~1.8.1",
+        "fresh": "~0.5.2",
+        "http-errors": "~2.0.1",
+        "mime": "1.6.0",
+        "ms": "2.1.3",
+        "on-finished": "~2.4.1",
+        "range-parser": "~1.2.1",
+        "statuses": "~2.0.2"
+      },
+      "engines": {
+        "node": ">= 0.8.0"
+      }
+    },
+    "node_modules/send/node_modules/mime": {
+      "version": "1.6.0",
+      "resolved": "https://registry.npmjs.org/mime/-/mime-1.6.0.tgz",
+      "integrity": "sha512-x0Vn8spI+wuJ1O6S7gnbaQg8Pxh4NNHb7KSINmEWKiPE4RKOplvijn+NkmYmmRgP68mc70j2EbeTFRsrswaQeg==",
+      "license": "MIT",
+      "bin": {
+        "mime": "cli.js"
+      },
+      "engines": {
+        "node": ">=4"
+      }
+    },
+    "node_modules/send/node_modules/ms": {
+      "version": "2.1.3",
+      "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+      "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
+      "license": "MIT"
+    },
+    "node_modules/serve-static": {
+      "version": "1.16.3",
+      "resolved": "https://registry.npmjs.org/serve-static/-/serve-static-1.16.3.tgz",
+      "integrity": "sha512-x0RTqQel6g5SY7Lg6ZreMmsOzncHFU7nhnRWkKgWuMTu5NN0DR5oruckMqRvacAN9d5w6ARnRBXl9xhDCgfMeA==",
+      "license": "MIT",
+      "dependencies": {
+        "encodeurl": "~2.0.0",
+        "escape-html": "~1.0.3",
+        "parseurl": "~1.3.3",
+        "send": "~0.19.1"
+      },
+      "engines": {
+        "node": ">= 0.8.0"
+      }
+    },
+    "node_modules/setprototypeof": {
+      "version": "1.2.0",
+      "resolved": "https://registry.npmjs.org/setprototypeof/-/setprototypeof-1.2.0.tgz",
+      "integrity": "sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==",
+      "license": "ISC"
+    },
+    "node_modules/side-channel": {
+      "version": "1.1.1",
+      "resolved": "https://registry.npmjs.org/side-channel/-/side-channel-1.1.1.tgz",
+      "integrity": "sha512-6x6dK6zJdpTzF4sQeNYxwtvBzf6Eg4GtlesS94HOvTudUeyK2WXAaIfmDgsyslYrRBeFIlsi54AYsFGUuhmvrQ==",
+      "license": "MIT",
+      "dependencies": {
+        "es-errors": "^1.3.0",
+        "object-inspect": "^1.13.4",
+        "side-channel-list": "^1.0.1",
+        "side-channel-map": "^1.0.1",
+        "side-channel-weakmap": "^1.0.2"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/side-channel-list": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/side-channel-list/-/side-channel-list-1.0.1.tgz",
+      "integrity": "sha512-mjn/0bi/oUURjc5Xl7IaWi/OJJJumuoJFQJfDDyO46+hBWsfaVM65TBHq2eoZBhzl9EchxOijpkbRC8SVBQU0w==",
+      "license": "MIT",
+      "dependencies": {
+        "es-errors": "^1.3.0",
+        "object-inspect": "^1.13.4"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/side-channel-map": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/side-channel-map/-/side-channel-map-1.0.1.tgz",
+      "integrity": "sha512-VCjCNfgMsby3tTdo02nbjtM/ewra6jPHmpThenkTYh8pG9ucZ/1P8So4u4FGBek/BjpOVsDCMoLA/iuBKIFXRA==",
+      "license": "MIT",
+      "dependencies": {
+        "call-bound": "^1.0.2",
+        "es-errors": "^1.3.0",
+        "get-intrinsic": "^1.2.5",
+        "object-inspect": "^1.13.3"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/side-channel-weakmap": {
+      "version": "1.0.2",
+      "resolved": "https://registry.npmjs.org/side-channel-weakmap/-/side-channel-weakmap-1.0.2.tgz",
+      "integrity": "sha512-WPS/HvHQTYnHisLo9McqBHOJk2FkHO/tlpvldyrnem4aeQp4hai3gythswg6p01oSoTl58rcpiFAjF2br2Ak2A==",
+      "license": "MIT",
+      "dependencies": {
+        "call-bound": "^1.0.2",
+        "es-errors": "^1.3.0",
+        "get-intrinsic": "^1.2.5",
+        "object-inspect": "^1.13.3",
+        "side-channel-map": "^1.0.1"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/sprintf-js": {
+      "version": "1.0.3",
+      "resolved": "https://registry.npmjs.org/sprintf-js/-/sprintf-js-1.0.3.tgz",
+      "integrity": "sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g==",
+      "license": "BSD-3-Clause"
+    },
+    "node_modules/statuses": {
+      "version": "2.0.2",
+      "resolved": "https://registry.npmjs.org/statuses/-/statuses-2.0.2.tgz",
+      "integrity": "sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/swagger-ui-dist": {
+      "version": "5.32.14",
+      "resolved": "https://registry.npmjs.org/swagger-ui-dist/-/swagger-ui-dist-5.32.14.tgz",
+      "integrity": "sha512-nOA2pSQhcmODMUQZpJHYKNuwniDUqcOWGNaSCOoZv12FdOSJ9JxV95HtyRGNMqEBj6h6lCNTy20TgZDYTSuUIg==",
+      "license": "Apache-2.0",
+      "dependencies": {
+        "@scarf/scarf": "=1.4.0"
+      }
+    },
+    "node_modules/swagger-ui-express": {
+      "version": "5.0.1",
+      "resolved": "https://registry.npmjs.org/swagger-ui-express/-/swagger-ui-express-5.0.1.tgz",
+      "integrity": "sha512-SrNU3RiBGTLLmFU8GIJdOdanJTl4TOmT27tt3bWWHppqYmAZ6IDuEuBvMU6nZq0zLEe6b/1rACXCgLZqO6ZfrA==",
+      "license": "MIT",
+      "dependencies": {
+        "swagger-ui-dist": ">=5.0.0"
+      },
+      "engines": {
+        "node": ">= v0.10.32"
+      },
+      "peerDependencies": {
+        "express": ">=4.0.0 || >=5.0.0-beta"
+      }
+    },
+    "node_modules/toidentifier": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/toidentifier/-/toidentifier-1.0.1.tgz",
+      "integrity": "sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.6"
+      }
+    },
+    "node_modules/tsx": {
+      "version": "4.23.12",
+      "resolved": "https://registry.npmjs.org/tsx/-/tsx-4.23.12.tgz",
+      "integrity": "sha512-FDf4L4sYzKtzWYhU/Xm0AQFdTjdIxNo9ElTf2mxXM6k8YMHXzYUe4yODVaXP4V9uMFbVg8c0qyBccK2OOxb45Q==",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "esbuild": "~0.28.0"
+      },
+      "bin": {
+        "tsx": "dist/cli.mjs"
+      },
+      "engines": {
+        "node": ">=18.0.0"
+      },
+      "optionalDependencies": {
+        "fsevents": "~2.3.3"
+      }
+    },
+    "node_modules/type-is": {
+      "version": "1.6.18",
+      "resolved": "https://registry.npmjs.org/type-is/-/type-is-1.6.18.tgz",
+      "integrity": "sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==",
+      "license": "MIT",
+      "dependencies": {
+        "media-typer": "0.3.0",
+        "mime-types": "~2.1.24"
+      },
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/typescript": {
+      "version": "5.9.3",
+      "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+      "dev": true,
+      "license": "Apache-2.0",
+      "bin": {
+        "tsc": "bin/tsc",
+        "tsserver": "bin/tsserver"
+      },
+      "engines": {
+        "node": ">=14.17"
+      }
+    },
+    "node_modules/undici-types": {
+      "version": "6.21.0",
+      "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz",
+      "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/unpipe": {
+      "version": "1.0.0",
+      "resolved": "https://registry.npmjs.org/unpipe/-/unpipe-1.0.0.tgz",
+      "integrity": "sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/utils-merge": {
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/utils-merge/-/utils-merge-1.0.1.tgz",
+      "integrity": "sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4.0"
+      }
+    },
+    "node_modules/vary": {
+      "version": "1.1.2",
+      "resolved": "https://registry.npmjs.org/vary/-/vary-1.1.2.tgz",
+      "integrity": "sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/wrappy": {
+      "version": "1.0.2",
+      "resolved": "https://registry.npmjs.org/wrappy/-/wrappy-1.0.2.tgz",
+      "integrity": "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==",
+      "license": "ISC"
+    },
+    "node_modules/yamljs": {
+      "version": "0.3.0",
+      "resolved": "https://registry.npmjs.org/yamljs/-/yamljs-0.3.0.tgz",
+      "integrity": "sha512-C/FsVVhht4iPQYXOInoxUM/1ELSf9EsgKH34FofQOp6hwCPrW4vG4w5++TED3xRUo8gD7l0P1J1dLlDYzODsTQ==",
+      "license": "MIT",
+      "dependencies": {
+        "argparse": "^1.0.7",
+        "glob": "^7.0.5"
+      },
+      "bin": {
+        "json2yaml": "bin/json2yaml",
+        "yaml2json": "bin/yaml2json"
+      }
+    }
+  }
+}
+
+
+===== ./README.md =====
+# ClyvoVet Backend
+
+API REST em Node.js + TypeScript + Oracle, feita para dar suporte ao **ClyvoVet Mobile** (Sprint 3 — Mobile Application Development).
+
+## O que essa API faz
+
+Expõe CRUD completo para as 3 entidades centrais do domínio:
+- **Consultas** (`/consultas`)
+- **Animais** (`/animais`)
+- **Responsáveis** (`/responsaveis`)
+
+Cada usuário só enxerga os próprios dados — o isolamento é feito pelo `uid` do Firebase (ver seção Autenticação).
+
+## Stack
+
+- Node.js + TypeScript
+- Express
+- `node-oracledb` (driver oficial Oracle, sem ORM)
+- `firebase-admin` (validação de token, não login)
+
+## Setup
+
+### 1. Instalar dependências
+
+```bash
+npm install
+```
+
+### 2. Configurar o `.env`
+
+Copie o exemplo e preencha com seus dados reais:
+
+```bash
+cp .env.example .env
+```
+
+Preencha `ORACLE_USER`, `ORACLE_PASSWORD` e `ORACLE_CONNECT_STRING` com as credenciais do seu Oracle.
+
+### 3. Rodar o script do banco
+
+Execute `schema-clyvovet.sql` no seu Oracle (via SQL Developer ou similar) **antes** de subir o servidor. Isso cria as 3 tabelas e insere alguns dados de exemplo.
+
+> ⚠️ O script tem `'SEU_UID_AQUI'` nos INSERTs de exemplo — troque pelo uid real do seu usuário de teste no Firebase quando ele existir (ou pelo mesmo valor usado em `AUTH_MODE=open`, ver abaixo, para testar agora).
+
+### 4. Rodar o servidor em modo desenvolvimento
+
+```bash
+npm run dev
+```
+
+Se tudo estiver certo, o terminal mostra:
+
+```
+[server] ClyvoVet backend rodando em http://localhost:3000
+[server] Modo de autenticação: OPEN
+```
+
+### 5. Testar pelo Swagger
+
+Abra no navegador:
+
+```
+http://localhost:3000/docs
+```
+
+Você verá todas as rotas organizadas por grupo (Consultas, Animais, Responsáveis), cada uma com os campos esperados e exemplos prontos. Para testar:
+
+1. Clique em qualquer rota para expandir
+2. Clique em **"Try it out"**
+3. Se a rota pedir o header `x-dev-uid`, preencha com `dev-user-1`
+4. Preencha o corpo da requisição (já vem com um exemplo, é só editar)
+5. Clique em **"Execute"**
+6. A resposta real do servidor aparece logo abaixo, com status code e corpo
+
+Isso substitui o Postman/Insomnia para testes rápidos — REQUESTS.md continua disponível como referência de texto simples, caso prefira.
+
+## Autenticação — dois modos
+
+Controlado pela variável `AUTH_MODE` no `.env`:
+
+### `AUTH_MODE=open` (agora, enquanto o Firebase não está plugado)
+
+Não exige token nenhum. Todo request usa um `uid` fixo (`dev-user-1`), a menos que você mande o header `x-dev-uid` com outro valor — útil para simular usuários diferentes no Postman.
+
+```
+GET /consultas
+x-dev-uid: dev-user-1
+```
+
+Use este modo para testar o CRUD completo (rotas, banco, cascata de exclusão) sem precisar do Firebase ainda.
+
+### `AUTH_MODE=strict` (produção — quando o Firebase estiver plugado)
+
+Exige um ID Token válido do Firebase em toda rota:
+
+```
+GET /consultas
+Authorization: Bearer <id-token-do-firebase>
+```
+
+Para ativar:
+1. No [Firebase Console](https://console.firebase.google.com), vá em **Configurações do projeto > Contas de serviço** e gere uma nova chave privada (baixa um `.json`).
+2. Cole o conteúdo desse JSON, como uma linha só, na variável `FIREBASE_SERVICE_ACCOUNT_JSON` do `.env`.
+3. Troque `AUTH_MODE` para `strict`.
+4. Reinicie o servidor.
+
+## Rotas disponíveis
+
+Ver `REQUESTS.md` para exemplos prontos de cada rota, ou testar direto pelo Swagger em `/docs` (recomendado — ver seção Setup acima).
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/health` | Verifica se o servidor está de pé (sem autenticação) |
+| GET | `/consultas` | Lista consultas do usuário |
+| GET | `/consultas/:id` | Detalhe de uma consulta |
+| POST | `/consultas` | Cria consulta |
+| PUT | `/consultas/:id` | Atualiza consulta |
+| DELETE | `/consultas/:id` | Remove consulta |
+| GET | `/animais` | Lista animais do usuário |
+| GET | `/animais?microchip=XXX` | Busca animal por microchip |
+| GET | `/animais/:id` | Detalhe de um animal |
+| GET | `/animais/:id/consultas` | Histórico de consultas do animal |
+| POST | `/animais` | Cria animal |
+| PUT | `/animais/:id` | Atualiza animal |
+| DELETE | `/animais/:id` | Remove animal (cascata: remove consultas vinculadas) |
+| GET | `/responsaveis` | Lista responsáveis do usuário |
+| GET | `/responsaveis?cpf=XXX` | Busca responsável por CPF |
+| GET | `/responsaveis/:id` | Detalhe de um responsável |
+| POST | `/responsaveis` | Cria responsável |
+| PUT | `/responsaveis/:id` | Atualiza responsável |
+| DELETE | `/responsaveis/:id` | Remove responsável (cascata: remove animais e consultas vinculados) |
+
+## Estrutura de pastas
+
+```
+src/
+├── config/
+│   └── database.ts        # Pool de conexões Oracle
+├── middlewares/
+│   └── auth.ts             # Validação de token (open/strict)
+├── services/                # Acesso a dados (SQL puro via node-oracledb)
+│   ├── consultaService.ts
+│   ├── animalService.ts
+│   └── responsavelService.ts
+├── controllers/              # Recebe request, valida entrada, chama service
+│   ├── consultaController.ts
+│   ├── animalController.ts
+│   └── responsavelController.ts
+├── routes/                    # Define os caminhos HTTP de cada recurso
+│   ├── consultaRoutes.ts
+│   ├── animalRoutes.ts
+│   └── responsavelRoutes.ts
+├── types/
+│   └── index.ts               # Tipos TypeScript compartilhados
+├── app.ts                      # Monta o Express e aplica as rotas
+└── server.ts                   # Sobe o servidor, inicializa Oracle e Firebase
+```
+
+## Build para produção
+
+```bash
+npm run build
+npm start
+```
+
+
+===== ./REQUESTS.md =====
+# Exemplos de requests (para Postman / Insomnia)
+
+Todos os exemplos assumem `AUTH_MODE=open` e o servidor rodando em `http://localhost:3000`.
+
+Header usado em todos os requests abaixo (exceto `/health`):
+```
+x-dev-uid: dev-user-1
+```
+
+Esse é o mesmo uid que já está nos dados de exemplo do `schema-clyvovet.sql` (depois de você trocar `'SEU_UID_AQUI'` por `'dev-user-1'` nos INSERTs, para poder testar agora sem precisar do Firebase).
+
+---
+
+## Health check
+
+```
+GET http://localhost:3000/health
+```
+
+---
+
+## Responsáveis
+
+### Listar todos
+```
+GET http://localhost:3000/responsaveis
+x-dev-uid: dev-user-1
+```
+
+### Buscar por CPF (usado na deduplicação do app)
+```
+GET http://localhost:3000/responsaveis?cpf=45812579024
+x-dev-uid: dev-user-1
+```
+
+### Criar
+```
+POST http://localhost:3000/responsaveis
+x-dev-uid: dev-user-1
+Content-Type: application/json
+
+{
+  "cpf_responsavel": "12345678900",
+  "nm_responsavel": "Maria Silva",
+  "nr_telefone_responsavel": "11999998888"
+}
+```
+
+### Atualizar
+```
+PUT http://localhost:3000/responsaveis/1
+x-dev-uid: dev-user-1
+Content-Type: application/json
+
+{
+  "cpf_responsavel": "45812579024",
+  "nm_responsavel": "Jaci Oliveira Santos",
+  "nr_telefone_responsavel": "11934567890"
+}
+```
+
+### Remover
+```
+DELETE http://localhost:3000/responsaveis/1
+x-dev-uid: dev-user-1
+```
+
+---
+
+## Animais
+
+### Listar todos
+```
+GET http://localhost:3000/animais
+x-dev-uid: dev-user-1
+```
+
+### Buscar por microchip (deduplicação)
+```
+GET http://localhost:3000/animais?microchip=5482
+x-dev-uid: dev-user-1
+```
+
+### Histórico de consultas de um animal
+```
+GET http://localhost:3000/animais/1/consultas
+x-dev-uid: dev-user-1
+```
+
+### Criar
+```
+POST http://localhost:3000/animais
+x-dev-uid: dev-user-1
+Content-Type: application/json
+
+{
+  "nm_animal": "Bidu",
+  "especie_animal": "Cachorro",
+  "raca_animal": "Vira-lata",
+  "dt_nascimento_animal": "2023-05-10",
+  "peso_animal": 12.5,
+  "rg_animal": null,
+  "nr_microchip_animal": "9988",
+  "id_responsavel": 1
+}
+```
+
+### Atualizar
+```
+PUT http://localhost:3000/animais/1
+x-dev-uid: dev-user-1
+Content-Type: application/json
+
+{
+  "nm_animal": "Arthur",
+  "especie_animal": "Cachorro",
+  "raca_animal": "Golden Retriever",
+  "dt_nascimento_animal": "2024-04-20",
+  "peso_animal": 62.0,
+  "rg_animal": null,
+  "nr_microchip_animal": "5482"
+}
+```
+
+### Remover (remove em cascata as consultas vinculadas)
+```
+DELETE http://localhost:3000/animais/1
+x-dev-uid: dev-user-1
+```
+
+---
+
+## Consultas
+
+### Listar todas
+```
+GET http://localhost:3000/consultas
+x-dev-uid: dev-user-1
+```
+
+### Criar
+```
+POST http://localhost:3000/consultas
+x-dev-uid: dev-user-1
+Content-Type: application/json
+
+{
+  "historico_consulta": "Check-up anual, tudo normal",
+  "dt_consulta": "2026-09-15",
+  "hr_consulta": "10:00",
+  "st_consulta": "Agendado",
+  "id_animal": 1
+}
+```
+
+### Atualizar
+```
+PUT http://localhost:3000/consultas/1
+x-dev-uid: dev-user-1
+Content-Type: application/json
+
+{
+  "historico_consulta": "Check-up anual — concluído sem alterações",
+  "dt_consulta": "2026-09-15",
+  "hr_consulta": "10:00",
+  "st_consulta": "Concluido"
+}
+```
+
+### Remover
+```
+DELETE http://localhost:3000/consultas/1
+x-dev-uid: dev-user-1
+```
+
+---
+
+## Fluxo completo de teste sugerido
+
+1. `GET /health` — confirma que o servidor está de pé
+2. `GET /responsaveis` — deve retornar os 2 responsáveis de exemplo (se você já rodou os INSERTs)
+3. `GET /animais` — deve retornar os 2 animais de exemplo
+4. `GET /consultas` — deve retornar as 2 consultas de exemplo
+5. `POST /responsaveis` — cria um novo, anota o `id_responsavel` retornado
+6. `POST /animais` — usa o `id_responsavel` do passo anterior
+7. `POST /consultas` — usa o `id_animal` do passo anterior
+8. `PUT /consultas/:id` — edita a consulta recém-criada, muda o status para `Concluido`
+9. `DELETE /animais/:id` — remove o animal criado, depois confira que `GET /consultas` não traz mais a consulta dele (cascata funcionando)
+
+
+===== ./schema-clyvovet.sql =====
+-- ============================================================
+-- ClyvoVet — Schema mínimo (Sprint 3 Mobile)
+-- Apenas as 3 tabelas que o app realmente usa.
+-- Sem procedures/functions/triggers — isso é escopo de outra disciplina.
+-- Isolamento de dados por usuário via uid_firebase (Firebase Auth).
+-- ============================================================
+
+-- Responsável (tutor do animal) — raiz do isolamento por usuário
+CREATE TABLE T_CLYVO_RESPONSAVEL (
+    id_responsavel      NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    uid_firebase         VARCHAR2(128) NOT NULL,
+    cpf_responsavel       VARCHAR2(20) NOT NULL,
+    nm_responsavel        VARCHAR2(100) NOT NULL,
+    nr_telefone_responsavel VARCHAR2(20) NOT NULL,
+    -- mesmo CPF pode existir para USUÁRIOS diferentes (cada um só vê o seu),
+    -- mas não pode duplicar CPF dentro do mesmo usuário
+    CONSTRAINT uq_responsavel_cpf_usuario UNIQUE (uid_firebase, cpf_responsavel)
+);
+
+-- Animal — sempre vinculado a um responsável
+CREATE TABLE T_CLYVO_ANIMAL (
+    id_animal            NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    rg_animal             VARCHAR2(20),
+    nr_microchip_animal    VARCHAR2(20),
+    nm_animal              VARCHAR2(100) NOT NULL,
+    dt_nascimento_animal    DATE,
+    peso_animal            NUMBER(6,2),
+    especie_animal          VARCHAR2(50) NOT NULL,
+    raca_animal             VARCHAR2(50),
+    id_responsavel          NUMBER NOT NULL,
+    CONSTRAINT fk_animal_responsavel FOREIGN KEY (id_responsavel)
+        REFERENCES T_CLYVO_RESPONSAVEL (id_responsavel)
+        ON DELETE CASCADE
+);
+
+-- Consulta — sempre vinculada a um animal (e, por herança, ao responsável e ao usuário)
+CREATE TABLE T_CLYVO_CONSULTA (
+    id_consulta           NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    historico_consulta      VARCHAR2(500) NOT NULL,
+    st_consulta             VARCHAR2(20) NOT NULL,
+    dt_consulta             DATE NOT NULL,
+    hr_consulta             VARCHAR2(5) NOT NULL, -- formato 'HH:MM', texto simples
+    id_animal               NUMBER NOT NULL,
+    CONSTRAINT ck_status_consulta CHECK (st_consulta IN ('Agendado', 'Concluido', 'Atrasado')),
+    CONSTRAINT fk_consulta_animal FOREIGN KEY (id_animal)
+        REFERENCES T_CLYVO_ANIMAL (id_animal)
+        ON DELETE CASCADE
+);
+
+-- ============================================================
+-- Índices auxiliares (buscas mais comuns do app)
+-- ============================================================
+CREATE INDEX idx_responsavel_uid ON T_CLYVO_RESPONSAVEL (uid_firebase);
+CREATE INDEX idx_animal_responsavel ON T_CLYVO_ANIMAL (id_responsavel);
+CREATE INDEX idx_consulta_animal ON T_CLYVO_CONSULTA (id_animal);
+
+-- ============================================================
+-- Dados de exemplo
+-- uid_firebase = 'dev-user-1' porque é o uid fixo que o backend usa
+-- quando AUTH_MODE=open (ver src/middlewares/auth.ts). Isso permite
+-- testar tudo agora, sem depender do Firebase ainda.
+--
+-- Quando o Firebase estiver plugado (AUTH_MODE=strict), troque estas
+-- 2 linhas de uid_firebase pelo uid real do seu usuário de teste
+-- (Console do Firebase > Authentication > coluna "UID"), ou os dados
+-- de exemplo abaixo deixam de aparecer para qualquer usuário real.
+-- ============================================================
+
+INSERT INTO T_CLYVO_RESPONSAVEL (uid_firebase, cpf_responsavel, nm_responsavel, nr_telefone_responsavel)
+VALUES ('dev-user-1', '45812579024', 'Jaci Oliveira', '11934567890');
+
+INSERT INTO T_CLYVO_RESPONSAVEL (uid_firebase, cpf_responsavel, nm_responsavel, nr_telefone_responsavel)
+VALUES ('dev-user-1', '54823687074', 'Felipe Santos', '11987456123');
+
+INSERT INTO T_CLYVO_ANIMAL (rg_animal, nr_microchip_animal, nm_animal, dt_nascimento_animal, peso_animal, especie_animal, raca_animal, id_responsavel)
+VALUES (NULL, '5482', 'Arthur', TO_DATE('2024-04-20', 'YYYY-MM-DD'), 60.5, 'Cachorro', 'Golden Retriever', 1);
+
+INSERT INTO T_CLYVO_ANIMAL (rg_animal, nr_microchip_animal, nm_animal, dt_nascimento_animal, peso_animal, especie_animal, raca_animal, id_responsavel)
+VALUES (NULL, NULL, 'Fofucho', TO_DATE('2020-08-10', 'YYYY-MM-DD'), 4.2, 'Gato', 'Laranja', 2);
+
+INSERT INTO T_CLYVO_CONSULTA (historico_consulta, st_consulta, dt_consulta, hr_consulta, id_animal)
+VALUES ('Consulta de rotina, vacinação em dia', 'Concluido', TO_DATE('2026-07-10', 'YYYY-MM-DD'), '14:30', 1);
+
+INSERT INTO T_CLYVO_CONSULTA (historico_consulta, st_consulta, dt_consulta, hr_consulta, id_animal)
+VALUES ('Retorno para avaliação de peso', 'Agendado', TO_DATE('2026-08-25', 'YYYY-MM-DD'), '09:00', 2);
+
+COMMIT;
+
+CREATE TABLE T_CLYVO_USUARIO (
+    id_usuario     NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    nm_usuario     VARCHAR2(100) NOT NULL,
+    email_usuario  VARCHAR2(150) NOT NULL,
+    senha_hash     VARCHAR2(255) NOT NULL,
+    dt_criacao     DATE DEFAULT SYSDATE NOT NULL,
+    CONSTRAINT uq_usuario_email UNIQUE (email_usuario)
+);
+
+CREATE INDEX idx_usuario_email ON T_CLYVO_USUARIO (email_usuario);
+
+===== ./src/app.ts =====
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import swaggerUi from 'swagger-ui-express';
+import YAML from 'yamljs';
+import { authMiddleware } from './middlewares/auth';
+import authRoutes from './routes/authRoutes';
+import consultaRoutes from './routes/consultaRoutes';
+import animalRoutes from './routes/animalRoutes';
+import responsavelRoutes from './routes/responsavelRoutes';
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+// Documentação interativa (Swagger UI) — não exige autenticação para ser
+// acessada; os testes feitos a partir dela é que seguem as regras normais.
+const openapiDocument = YAML.load(path.join(__dirname, '..', 'openapi.yaml'));
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiDocument));
+
+// Rota simples de verificação — não exige autenticação, útil para
+// checar rapidamente se o servidor e o banco estão de pé.
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// Login, cadastro e logout — não passam por authMiddleware, pois são
+// justamente como o usuário CONSEGUE um token, não usa um que já tem.
+app.use('/auth', authRoutes);
+
+// A partir daqui, todas as rotas exigem um JWT válido (ver src/middlewares/auth.ts).
+app.use('/consultas', authMiddleware, consultaRoutes);
+app.use('/animais', authMiddleware, animalRoutes);
+app.use('/responsaveis', authMiddleware, responsavelRoutes);
+
+export default app;
+
+===== ./src/config/database.ts =====
+import oracledb from 'oracledb';
+
+// Faz o driver devolver os resultados já como objetos { coluna: valor },
+// em vez de arrays posicionais — muito mais fácil de trabalhar no código.
+oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
+
+// Converte automaticamente CLOB/BLOB para string/buffer direto no resultado,
+// sem precisar tratar stream manualmente em cada query.
+oracledb.fetchAsString = [oracledb.CLOB];
+
+let pool: oracledb.Pool | null = null;
+
+/**
+ * Cria (uma única vez) o pool de conexões com o Oracle.
+ * Chamado no start do servidor, antes de aceitar qualquer requisição.
+ */
+export async function initDatabase(): Promise<void> {
+  if (pool) return;
+
+  const { ORACLE_USER, ORACLE_PASSWORD, ORACLE_CONNECT_STRING } = process.env;
+
+  if (!ORACLE_USER || !ORACLE_PASSWORD || !ORACLE_CONNECT_STRING) {
+    throw new Error(
+      'Variáveis de ambiente do Oracle ausentes. Confira o arquivo .env (veja .env.example).'
+    );
+  }
+
+  pool = await oracledb.createPool({
+    user: ORACLE_USER,
+    password: ORACLE_PASSWORD,
+    connectString: ORACLE_CONNECT_STRING,
+    poolMin: 1,
+    poolMax: 5,
+    poolIncrement: 1,
+  });
+
+  console.log('[database] Pool de conexões Oracle criado com sucesso.');
+}
+
+/**
+ * Executa uma query única, cuidando de abrir e fechar a conexão sozinho.
+ * Uso: await runQuery('SELECT * FROM tabela WHERE id = :id', { id: 1 })
+ */
+export async function runQuery<T = any>(
+  sql: string,
+  binds: oracledb.BindParameters = {},
+  options: oracledb.ExecuteOptions = {}
+): Promise<oracledb.Result<T>> {
+  if (!pool) {
+    throw new Error('Pool do Oracle ainda não foi inicializado. Chame initDatabase() primeiro.');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    const result = await connection.execute<T>(sql, binds, {
+      autoCommit: true,
+      ...options,
+    });
+    return result;
+  } finally {
+    await connection.close();
+  }
+}
+
+/**
+ * Fecha o pool de conexões (usado no shutdown gracioso do servidor).
+ */
+export async function closeDatabase(): Promise<void> {
+  if (pool) {
+    await pool.close(10);
+    pool = null;
+    console.log('[database] Pool de conexões Oracle fechado.');
+  }
+}
+
+
+===== ./src/controllers/animalController.ts =====
+import { Request, Response } from 'express';
+import * as animalService from '../services/animalService';
+import * as consultaService from '../services/consultaService';
+
+export async function listar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const { microchip } = req.query;
+
+    if (microchip && typeof microchip === 'string') {
+      const animal = await animalService.buscarPorMicrochip(microchip, uid);
+      return res.status(200).json(animal);
+    }
+
+    const animais = await animalService.listarPorUsuario(uid);
+    res.status(200).json(animais);
+  } catch (err) {
+    console.error('[animalController.listar]', err);
+    res.status(500).json({ error: 'Erro ao listar animais.' });
+  }
+}
+
+export async function buscarPorId(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const animal = await animalService.buscarPorId(id, uid);
+
+    if (!animal) {
+      return res.status(404).json({ error: 'Animal não encontrado.' });
+    }
+    res.status(200).json(animal);
+  } catch (err) {
+    console.error('[animalController.buscarPorId]', err);
+    res.status(500).json({ error: 'Erro ao buscar animal.' });
+  }
+}
+
+export async function listarConsultasDoAnimal(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const consultas = await consultaService.listarPorAnimal(id, uid);
+    res.status(200).json(consultas);
+  } catch (err) {
+    console.error('[animalController.listarConsultasDoAnimal]', err);
+    res.status(500).json({ error: 'Erro ao buscar histórico de consultas do animal.' });
+  }
+}
+
+export async function criar(req: Request, res: Response) {
+  try {
+    const { nm_animal, especie_animal, id_responsavel } = req.body;
+
+    if (!nm_animal || !especie_animal || !id_responsavel) {
+      return res.status(400).json({
+        error: 'Campos obrigatórios: nm_animal, especie_animal, id_responsavel.',
+      });
+    }
+
+    const novoAnimal = await animalService.criar(req.body);
+    res.status(201).json(novoAnimal);
+  } catch (err) {
+    console.error('[animalController.criar]', err);
+    res.status(500).json({ error: 'Erro ao criar animal.' });
+  }
+}
+
+export async function atualizar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const { nm_animal, especie_animal } = req.body;
+
+    if (!nm_animal || !especie_animal) {
+      return res.status(400).json({ error: 'Campos obrigatórios: nm_animal, especie_animal.' });
+    }
+
+    const atualizado = await animalService.atualizar(id, req.body, uid);
+
+    if (!atualizado) {
+      return res.status(404).json({ error: 'Animal não encontrado.' });
+    }
+    res.status(200).json({ id_animal: id, ...req.body });
+  } catch (err) {
+    console.error('[animalController.atualizar]', err);
+    res.status(500).json({ error: 'Erro ao atualizar animal.' });
+  }
+}
+
+export async function remover(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const removido = await animalService.remover(id, uid);
+
+    if (!removido) {
+      return res.status(404).json({ error: 'Animal não encontrado.' });
+    }
+    res.status(204).send();
+  } catch (err) {
+    console.error('[animalController.remover]', err);
+    res.status(500).json({ error: 'Erro ao remover animal.' });
+  }
+}
+
+
+===== ./src/controllers/authController.ts =====
+import { Request, Response } from 'express';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import * as usuarioService from '../services/usuarioService';
+
+const SALT_ROUNDS = 10;
+const TOKEN_EXPIRACAO = '2h';
+
+function gerarToken(idUsuario: number): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET não configurado.');
+  }
+  return jwt.sign({ uid: String(idUsuario) }, secret, { expiresIn: TOKEN_EXPIRACAO });
+}
+
+export async function cadastrar(req: Request, res: Response) {
+  try {
+    const { nome, email, senha } = req.body;
+
+    if (!nome || !email || !senha) {
+      return res.status(400).json({ error: 'Campos obrigatórios: nome, email, senha.' });
+    }
+
+    if (senha.length < 6) {
+      return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres.' });
+    }
+
+    const existente = await usuarioService.buscarPorEmail(email);
+    if (existente) {
+      return res.status(409).json({ error: 'Já existe uma conta com este e-mail.' });
+    }
+
+    const senhaHash = await bcrypt.hash(senha, SALT_ROUNDS);
+    const novoUsuario = await usuarioService.criar(nome, email, senhaHash);
+    const token = gerarToken(novoUsuario.id_usuario);
+
+    res.status(201).json({
+      token,
+      usuario: {
+        id_usuario: novoUsuario.id_usuario,
+        nm_usuario: novoUsuario.nm_usuario,
+        email_usuario: novoUsuario.email_usuario,
+      },
+    });
+  } catch (err) {
+    console.error('[authController.cadastrar]', err);
+    res.status(500).json({ error: 'Erro ao cadastrar usuário.' });
+  }
+}
+
+export async function login(req: Request, res: Response) {
+  try {
+    const { email, senha } = req.body;
+
+    if (!email || !senha) {
+      return res.status(400).json({ error: 'Campos obrigatórios: email, senha.' });
+    }
+
+    const usuario = await usuarioService.buscarPorEmail(email);
+    if (!usuario) {
+      return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+    }
+
+    const senhaCorreta = await bcrypt.compare(senha, usuario.senha_hash);
+    if (!senhaCorreta) {
+      return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+    }
+
+    const token = gerarToken(usuario.id_usuario);
+
+    res.status(200).json({
+      token,
+      usuario: {
+        id_usuario: usuario.id_usuario,
+        nm_usuario: usuario.nm_usuario,
+        email_usuario: usuario.email_usuario,
+      },
+    });
+  } catch (err) {
+    console.error('[authController.login]', err);
+    res.status(500).json({ error: 'Erro ao efetuar login.' });
+  }
+}
+
+export async function logout(_req: Request, res: Response) {
+  res.status(200).json({ message: 'Logout efetuado. Descarte o token salvo no app.' });
+}
+
+export async function atualizarPerfil(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const { nome, email, senha } = req.body;
+
+    if (!nome || !email) {
+      return res.status(400).json({ error: 'Campos obrigatórios: nome, email.' });
+    }
+
+    let senhaHash: string | undefined;
+    if (senha) {
+      if (senha.length < 6) {
+        return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres.' });
+      }
+      senhaHash = await bcrypt.hash(senha, SALT_ROUNDS);
+    }
+
+    await usuarioService.atualizar(uid, nome, email, senhaHash);
+
+    res.status(200).json({ id_usuario: uid, nm_usuario: nome, email_usuario: email });
+  } catch (err) {
+    console.error('[authController.atualizarPerfil]', err);
+    res.status(500).json({ error: 'Erro ao atualizar perfil.' });
+  }
+}
+
+export async function apagarConta(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const { senha } = req.body;
+
+    if (!senha) {
+      return res.status(400).json({ error: 'Campo obrigatório: senha.' });
+    }
+
+    const usuario = await usuarioService.buscarPorId(uid);
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    const senhaCorreta = await bcrypt.compare(senha, usuario.senha_hash);
+    if (!senhaCorreta) {
+      return res.status(401).json({ error: 'Senha incorreta.' });
+    }
+
+    await usuarioService.apagar(uid);
+
+    res.status(204).send();
+  } catch (err) {
+    console.error('[authController.apagarConta]', err);
+    res.status(500).json({ error: 'Erro ao apagar conta.' });
+  }
+}
+
+===== ./src/controllers/consultaController.ts =====
+import { Request, Response } from 'express';
+import * as consultaService from '../services/consultaService';
+
+const STATUS_VALIDOS = ['Agendado', 'Concluido', 'Atrasado'];
+
+export async function listar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const consultas = await consultaService.listarPorUsuario(uid);
+    res.status(200).json(consultas);
+  } catch (err) {
+    console.error('[consultaController.listar]', err);
+    res.status(500).json({ error: 'Erro ao listar consultas.' });
+  }
+}
+
+export async function buscarPorId(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const consulta = await consultaService.buscarPorId(id, uid);
+
+    if (!consulta) {
+      return res.status(404).json({ error: 'Consulta não encontrada.' });
+    }
+    res.status(200).json(consulta);
+  } catch (err) {
+    console.error('[consultaController.buscarPorId]', err);
+    res.status(500).json({ error: 'Erro ao buscar consulta.' });
+  }
+}
+
+export async function criar(req: Request, res: Response) {
+  try {
+    const { historico_consulta, dt_consulta, hr_consulta, id_animal, st_consulta } = req.body;
+
+    if (!historico_consulta || !dt_consulta || !hr_consulta || !id_animal) {
+      return res.status(400).json({
+        error: 'Campos obrigatórios: historico_consulta, dt_consulta, hr_consulta, id_animal.',
+      });
+    }
+
+    if (st_consulta && !STATUS_VALIDOS.includes(st_consulta)) {
+      return res.status(400).json({ error: `st_consulta deve ser um de: ${STATUS_VALIDOS.join(', ')}.` });
+    }
+
+    const novaConsulta = await consultaService.criar(req.body);
+    res.status(201).json(novaConsulta);
+  } catch (err) {
+    console.error('[consultaController.criar]', err);
+    res.status(500).json({ error: 'Erro ao criar consulta.' });
+  }
+}
+
+export async function atualizar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const { historico_consulta, dt_consulta, hr_consulta, st_consulta } = req.body;
+
+    if (!historico_consulta || !dt_consulta || !hr_consulta || !st_consulta) {
+      return res.status(400).json({
+        error: 'Campos obrigatórios: historico_consulta, dt_consulta, hr_consulta, st_consulta.',
+      });
+    }
+
+    if (!STATUS_VALIDOS.includes(st_consulta)) {
+      return res.status(400).json({ error: `st_consulta deve ser um de: ${STATUS_VALIDOS.join(', ')}.` });
+    }
+
+    const atualizado = await consultaService.atualizar(
+      id,
+      { historico_consulta, dt_consulta, hr_consulta, st_consulta },
+      uid
+    );
+
+    if (!atualizado) {
+      return res.status(404).json({ error: 'Consulta não encontrada.' });
+    }
+    res.status(200).json({ id_consulta: id, historico_consulta, dt_consulta, hr_consulta, st_consulta });
+  } catch (err) {
+    console.error('[consultaController.atualizar]', err);
+    res.status(500).json({ error: 'Erro ao atualizar consulta.' });
+  }
+}
+
+export async function remover(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const removido = await consultaService.remover(id, uid);
+
+    if (!removido) {
+      return res.status(404).json({ error: 'Consulta não encontrada.' });
+    }
+    res.status(204).send();
+  } catch (err) {
+    console.error('[consultaController.remover]', err);
+    res.status(500).json({ error: 'Erro ao remover consulta.' });
+  }
+}
+
+
+===== ./src/controllers/responsavelController.ts =====
+import { Request, Response } from 'express';
+import * as responsavelService from '../services/responsavelService';
+
+export async function listar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const { cpf } = req.query;
+
+    if (cpf && typeof cpf === 'string') {
+      const responsavel = await responsavelService.buscarPorCpf(cpf, uid);
+      return res.status(200).json(responsavel); // pode ser null — o mobile já trata isso
+    }
+
+    const responsaveis = await responsavelService.listarPorUsuario(uid);
+    res.status(200).json(responsaveis);
+  } catch (err) {
+    console.error('[responsavelController.listar]', err);
+    res.status(500).json({ error: 'Erro ao listar responsáveis.' });
+  }
+}
+
+export async function buscarPorId(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const responsavel = await responsavelService.buscarPorId(id, uid);
+
+    if (!responsavel) {
+      return res.status(404).json({ error: 'Responsável não encontrado.' });
+    }
+    res.status(200).json(responsavel);
+  } catch (err) {
+    console.error('[responsavelController.buscarPorId]', err);
+    res.status(500).json({ error: 'Erro ao buscar responsável.' });
+  }
+}
+
+export async function criar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const { cpf_responsavel, nm_responsavel, nr_telefone_responsavel } = req.body;
+
+    if (!cpf_responsavel || !nm_responsavel || !nr_telefone_responsavel) {
+      return res.status(400).json({
+        error: 'Campos obrigatórios: cpf_responsavel, nm_responsavel, nr_telefone_responsavel.',
+      });
+    }
+
+    const novoResponsavel = await responsavelService.criar(
+      { cpf_responsavel, nm_responsavel, nr_telefone_responsavel },
+      uid
+    );
+    res.status(201).json(novoResponsavel);
+  } catch (err) {
+    console.error('[responsavelController.criar]', err);
+    res.status(500).json({ error: 'Erro ao criar responsável.' });
+  }
+}
+
+export async function atualizar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const { cpf_responsavel, nm_responsavel, nr_telefone_responsavel } = req.body;
+
+    if (!cpf_responsavel || !nm_responsavel || !nr_telefone_responsavel) {
+      return res.status(400).json({
+        error: 'Campos obrigatórios: cpf_responsavel, nm_responsavel, nr_telefone_responsavel.',
+      });
+    }
+
+    const atualizado = await responsavelService.atualizar(
+      id,
+      { cpf_responsavel, nm_responsavel, nr_telefone_responsavel },
+      uid
+    );
+
+    if (!atualizado) {
+      return res.status(404).json({ error: 'Responsável não encontrado.' });
+    }
+    res.status(200).json({ id_responsavel: id, cpf_responsavel, nm_responsavel, nr_telefone_responsavel });
+  } catch (err) {
+    console.error('[responsavelController.atualizar]', err);
+    res.status(500).json({ error: 'Erro ao atualizar responsável.' });
+  }
+}
+
+export async function remover(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const removido = await responsavelService.remover(id, uid);
+
+    if (!removido) {
+      return res.status(404).json({ error: 'Responsável não encontrado.' });
+    }
+    res.status(204).send();
+  } catch (err) {
+    console.error('[responsavelController.remover]', err);
+    res.status(500).json({ error: 'Erro ao remover responsável.' });
+  }
+}
+
+
+===== ./src/middlewares/auth.ts =====
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+
+/**
+ * Middleware que protege as rotas, exigindo um JWT válido no header
+ * Authorization: Bearer <token>.
+ *
+ * O token é emitido pelo próprio backend (ver authController.ts),
+ * após login ou cadastro bem-sucedidos.
+ */
+export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.header('authorization') || req.header('Authorization');
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token de autenticação ausente.' });
+  }
+
+  const token = authHeader.substring('Bearer '.length);
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret) {
+    return res.status(500).json({
+      error: 'JWT_SECRET não configurado no servidor. Confira o .env.',
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, secret) as { uid: string };
+    req.uid = decoded.uid;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Token inválido ou expirado.' });
+  }
+}
+
+===== ./src/routes/animalRoutes.ts =====
+import { Router } from 'express';
+import * as animalController from '../controllers/animalController';
+
+const router = Router();
+
+// GET /animais                  -> lista todos
+// GET /animais?microchip=XXX    -> busca por microchip (deduplicação do modal "Nova Consulta")
+router.get('/', animalController.listar);
+
+router.get('/:id', animalController.buscarPorId);
+router.get('/:id/consultas', animalController.listarConsultasDoAnimal);
+router.post('/', animalController.criar);
+router.put('/:id', animalController.atualizar);
+router.delete('/:id', animalController.remover);
+
+export default router;
+
+
+===== ./src/routes/authRoutes.ts =====
+import { Router } from 'express';
+import * as authController from '../controllers/authController';
+import { authMiddleware } from '../middlewares/auth';
+
+const router = Router();
+
+router.post('/cadastro', authController.cadastrar);
+router.post('/login', authController.login);
+router.post('/logout', authController.logout);
+
+router.put('/perfil', authMiddleware, authController.atualizarPerfil);
+router.delete('/conta', authMiddleware, authController.apagarConta);
+
+export default router;
+
+===== ./src/routes/consultaRoutes.ts =====
+import { Router } from 'express';
+import * as consultaController from '../controllers/consultaController';
+
+const router = Router();
+
+router.get('/', consultaController.listar);
+router.get('/:id', consultaController.buscarPorId);
+router.post('/', consultaController.criar);
+router.put('/:id', consultaController.atualizar);
+router.delete('/:id', consultaController.remover);
+
+export default router;
+
+
+===== ./src/routes/responsavelRoutes.ts =====
+import { Router } from 'express';
+import * as responsavelController from '../controllers/responsavelController';
+
+const router = Router();
+
+// GET /responsaveis            -> lista todos
+// GET /responsaveis?cpf=XXX    -> busca por cpf (usado na deduplicação do modal "Nova Consulta")
+router.get('/', responsavelController.listar);
+
+router.get('/:id', responsavelController.buscarPorId);
+router.post('/', responsavelController.criar);
+router.put('/:id', responsavelController.atualizar);
+router.delete('/:id', responsavelController.remover);
+
+export default router;
+
+
+===== ./src/server.ts =====
+import 'dotenv/config';
+import app from './app';
+import { initDatabase, closeDatabase } from './config/database';
+
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+
+async function start() {
+  try {
+    if (!process.env.JWT_SECRET) {
+      console.error('[server] JWT_SECRET não configurado no .env. O servidor não pode iniciar sem isso.');
+      process.exit(1);
+    }
+
+    await initDatabase();
+
+    const server = app.listen(PORT, () => {
+      console.log(`[server] ClyvoVet backend rodando em http://localhost:${PORT}`);
+      console.log('[server] Autenticação: JWT próprio (login/cadastro em /auth)');
+    });
+
+    // Encerramento gracioso: fecha o pool do Oracle antes de derrubar o processo.
+    const shutdown = async () => {
+      console.log('\n[server] Encerrando...');
+      server.close();
+      await closeDatabase();
+      process.exit(0);
+    };
+
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+  } catch (err) {
+    console.error('[server] Falha ao iniciar o servidor:', err);
+    process.exit(1);
+  }
+}
+
+start();
+
+===== ./src/services/animalService.ts =====
+import { runQuery } from '../config/database';
+import { Animal, CriarAnimalBody } from '../types';
+
+// Todas as queries fazem JOIN com T_CLYVO_RESPONSAVEL para checar o uid_firebase,
+// já que Animal não guarda o uid diretamente — ele herda o "dono" via responsável.
+
+export async function listarPorUsuario(uid: string): Promise<Animal[]> {
+  const result = await runQuery<Animal>(
+    `SELECT a.id_animal, a.rg_animal, a.nr_microchip_animal, a.nm_animal,
+            a.dt_nascimento_animal, a.peso_animal, a.especie_animal, a.raca_animal,
+            a.id_responsavel
+     FROM T_CLYVO_ANIMAL a
+     INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+     WHERE r.uid_firebase = :uid
+     ORDER BY a.nm_animal`,
+    { uid }
+  );
+  return result.rows ?? [];
+}
+
+export async function buscarPorId(id: number, uid: string): Promise<Animal | null> {
+  const result = await runQuery<Animal>(
+    `SELECT a.id_animal, a.rg_animal, a.nr_microchip_animal, a.nm_animal,
+            a.dt_nascimento_animal, a.peso_animal, a.especie_animal, a.raca_animal,
+            a.id_responsavel
+     FROM T_CLYVO_ANIMAL a
+     INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+     WHERE a.id_animal = :id AND r.uid_firebase = :uid`,
+    { id, uid }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function buscarPorMicrochip(microchip: string, uid: string): Promise<Animal | null> {
+  const result = await runQuery<Animal>(
+    `SELECT a.id_animal, a.rg_animal, a.nr_microchip_animal, a.nm_animal,
+            a.dt_nascimento_animal, a.peso_animal, a.especie_animal, a.raca_animal,
+            a.id_responsavel
+     FROM T_CLYVO_ANIMAL a
+     INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+     WHERE a.nr_microchip_animal = :microchip AND r.uid_firebase = :uid`,
+    { microchip, uid }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function criar(body: CriarAnimalBody): Promise<Animal> {
+  const result = await runQuery<{ id_animal: number }>(
+    `INSERT INTO T_CLYVO_ANIMAL
+       (rg_animal, nr_microchip_animal, nm_animal, dt_nascimento_animal, peso_animal, especie_animal, raca_animal, id_responsavel)
+     VALUES
+       (:rg, :microchip, :nome, TO_DATE(:nascimento, 'YYYY-MM-DD'), :peso, :especie, :raca, :idResponsavel)
+     RETURNING id_animal INTO :novoId`,
+    {
+      rg: body.rg_animal ?? null,
+      microchip: body.nr_microchip_animal ?? null,
+      nome: body.nm_animal,
+      nascimento: body.dt_nascimento_animal ?? null,
+      peso: body.peso_animal ?? null,
+      especie: body.especie_animal,
+      raca: body.raca_animal ?? null,
+      idResponsavel: body.id_responsavel,
+      novoId: { dir: 3003, type: 2010 },
+    }
+  );
+
+  const novoId = (result.outBinds as any).novoId[0];
+  return { id_animal: novoId, ...body } as Animal;
+}
+
+export async function atualizar(id: number, body: CriarAnimalBody, uid: string): Promise<boolean> {
+  const result = await runQuery(
+    `UPDATE T_CLYVO_ANIMAL a
+     SET rg_animal = :rg,
+         nr_microchip_animal = :microchip,
+         nm_animal = :nome,
+         dt_nascimento_animal = TO_DATE(:nascimento, 'YYYY-MM-DD'),
+         peso_animal = :peso,
+         especie_animal = :especie,
+         raca_animal = :raca
+     WHERE a.id_animal = :id
+       AND EXISTS (
+         SELECT 1 FROM T_CLYVO_RESPONSAVEL r
+         WHERE r.id_responsavel = a.id_responsavel AND r.uid_firebase = :uid
+       )`,
+    {
+      id,
+      uid,
+      rg: body.rg_animal ?? null,
+      microchip: body.nr_microchip_animal ?? null,
+      nome: body.nm_animal,
+      nascimento: body.dt_nascimento_animal ?? null,
+      peso: body.peso_animal ?? null,
+      especie: body.especie_animal,
+      raca: body.raca_animal ?? null,
+    }
+  );
+  return (result.rowsAffected ?? 0) > 0;
+}
+
+export async function remover(id: number, uid: string): Promise<boolean> {
+  // ON DELETE CASCADE cuida de remover as Consultas vinculadas a este animal.
+  const result = await runQuery(
+    `DELETE FROM T_CLYVO_ANIMAL a
+     WHERE a.id_animal = :id
+       AND EXISTS (
+         SELECT 1 FROM T_CLYVO_RESPONSAVEL r
+         WHERE r.id_responsavel = a.id_responsavel AND r.uid_firebase = :uid
+       )`,
+    { id, uid }
+  );
+  return (result.rowsAffected ?? 0) > 0;
+}
+
+
+===== ./src/services/consultaService.ts =====
+import { runQuery } from '../config/database';
+import { Consulta, CriarConsultaBody, AtualizarConsultaBody } from '../types';
+
+// Consulta herda o "dono" via Animal -> Responsavel, por isso o duplo JOIN.
+
+export async function listarPorUsuario(uid: string): Promise<Consulta[]> {
+  const result = await runQuery<Consulta>(
+    `SELECT c.id_consulta, c.historico_consulta, c.st_consulta, c.dt_consulta, c.hr_consulta, c.id_animal
+     FROM T_CLYVO_CONSULTA c
+     INNER JOIN T_CLYVO_ANIMAL a ON a.id_animal = c.id_animal
+     INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+     WHERE r.uid_firebase = :uid
+     ORDER BY c.dt_consulta DESC`,
+    { uid }
+  );
+  return result.rows ?? [];
+}
+
+export async function buscarPorId(id: number, uid: string): Promise<Consulta | null> {
+  const result = await runQuery<Consulta>(
+    `SELECT c.id_consulta, c.historico_consulta, c.st_consulta, c.dt_consulta, c.hr_consulta, c.id_animal
+     FROM T_CLYVO_CONSULTA c
+     INNER JOIN T_CLYVO_ANIMAL a ON a.id_animal = c.id_animal
+     INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+     WHERE c.id_consulta = :id AND r.uid_firebase = :uid`,
+    { id, uid }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function listarPorAnimal(idAnimal: number, uid: string): Promise<Consulta[]> {
+  const result = await runQuery<Consulta>(
+    `SELECT c.id_consulta, c.historico_consulta, c.st_consulta, c.dt_consulta, c.hr_consulta, c.id_animal
+     FROM T_CLYVO_CONSULTA c
+     INNER JOIN T_CLYVO_ANIMAL a ON a.id_animal = c.id_animal
+     INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+     WHERE c.id_animal = :idAnimal AND r.uid_firebase = :uid
+     ORDER BY c.dt_consulta DESC`,
+    { idAnimal, uid }
+  );
+  return result.rows ?? [];
+}
+
+export async function criar(body: CriarConsultaBody): Promise<Consulta> {
+  const status = body.st_consulta ?? 'Agendado';
+
+  const result = await runQuery<{ id_consulta: number }>(
+    `INSERT INTO T_CLYVO_CONSULTA (historico_consulta, st_consulta, dt_consulta, hr_consulta, id_animal)
+     VALUES (:historico, :status, TO_DATE(:data, 'YYYY-MM-DD'), :hora, :idAnimal)
+     RETURNING id_consulta INTO :novoId`,
+    {
+      historico: body.historico_consulta,
+      status,
+      data: body.dt_consulta,
+      hora: body.hr_consulta,
+      idAnimal: body.id_animal,
+      novoId: { dir: 3003, type: 2010 },
+    }
+  );
+
+  const novoId = (result.outBinds as any).novoId[0];
+  return {
+    id_consulta: novoId,
+    historico_consulta: body.historico_consulta,
+    st_consulta: status,
+    dt_consulta: body.dt_consulta,
+    hr_consulta: body.hr_consulta,
+    id_animal: body.id_animal,
+  };
+}
+
+export async function atualizar(
+  id: number,
+  body: AtualizarConsultaBody,
+  uid: string
+): Promise<boolean> {
+  const result = await runQuery(
+    `UPDATE T_CLYVO_CONSULTA c
+     SET historico_consulta = :historico,
+         st_consulta = :status,
+         dt_consulta = TO_DATE(:data, 'YYYY-MM-DD'),
+         hr_consulta = :hora
+     WHERE c.id_consulta = :id
+       AND EXISTS (
+         SELECT 1 FROM T_CLYVO_ANIMAL a
+         INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+         WHERE a.id_animal = c.id_animal AND r.uid_firebase = :uid
+       )`,
+    {
+      id,
+      uid,
+      historico: body.historico_consulta,
+      status: body.st_consulta,
+      data: body.dt_consulta,
+      hora: body.hr_consulta,
+    }
+  );
+  return (result.rowsAffected ?? 0) > 0;
+}
+
+export async function remover(id: number, uid: string): Promise<boolean> {
+  const result = await runQuery(
+    `DELETE FROM T_CLYVO_CONSULTA c
+     WHERE c.id_consulta = :id
+       AND EXISTS (
+         SELECT 1 FROM T_CLYVO_ANIMAL a
+         INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+         WHERE a.id_animal = c.id_animal AND r.uid_firebase = :uid
+       )`,
+    { id, uid }
+  );
+  return (result.rowsAffected ?? 0) > 0;
+}
+
+
+===== ./src/services/responsavelService.ts =====
+import { runQuery } from '../config/database';
+import { Responsavel, CriarResponsavelBody } from '../types';
+
+export async function listarPorUsuario(uid: string): Promise<Responsavel[]> {
+  const result = await runQuery<Responsavel>(
+    `SELECT id_responsavel, uid_firebase, cpf_responsavel, nm_responsavel, nr_telefone_responsavel
+     FROM T_CLYVO_RESPONSAVEL
+     WHERE uid_firebase = :uid
+     ORDER BY nm_responsavel`,
+    { uid }
+  );
+  return result.rows ?? [];
+}
+
+export async function buscarPorId(id: number, uid: string): Promise<Responsavel | null> {
+  const result = await runQuery<Responsavel>(
+    `SELECT id_responsavel, uid_firebase, cpf_responsavel, nm_responsavel, nr_telefone_responsavel
+     FROM T_CLYVO_RESPONSAVEL
+     WHERE id_responsavel = :id AND uid_firebase = :uid`,
+    { id, uid }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function buscarPorCpf(cpf: string, uid: string): Promise<Responsavel | null> {
+  const result = await runQuery<Responsavel>(
+    `SELECT id_responsavel, uid_firebase, cpf_responsavel, nm_responsavel, nr_telefone_responsavel
+     FROM T_CLYVO_RESPONSAVEL
+     WHERE cpf_responsavel = :cpf AND uid_firebase = :uid`,
+    { cpf, uid }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function criar(body: CriarResponsavelBody, uid: string): Promise<Responsavel> {
+  const result = await runQuery<{ id_responsavel: number }>(
+    `INSERT INTO T_CLYVO_RESPONSAVEL (uid_firebase, cpf_responsavel, nm_responsavel, nr_telefone_responsavel)
+     VALUES (:uid, :cpf, :nome, :telefone)
+     RETURNING id_responsavel INTO :novoId`,
+    {
+      uid,
+      cpf: body.cpf_responsavel,
+      nome: body.nm_responsavel,
+      telefone: body.nr_telefone_responsavel,
+      novoId: { dir: 3003 /* BIND_OUT */, type: 2010 /* NUMBER */ },
+    }
+  );
+
+  const novoId = (result.outBinds as any).novoId[0];
+  return {
+    id_responsavel: novoId,
+    uid_firebase: uid,
+    cpf_responsavel: body.cpf_responsavel,
+    nm_responsavel: body.nm_responsavel,
+    nr_telefone_responsavel: body.nr_telefone_responsavel,
+  };
+}
+
+export async function atualizar(
+  id: number,
+  body: CriarResponsavelBody,
+  uid: string
+): Promise<boolean> {
+  const result = await runQuery(
+    `UPDATE T_CLYVO_RESPONSAVEL
+     SET cpf_responsavel = :cpf, nm_responsavel = :nome, nr_telefone_responsavel = :telefone
+     WHERE id_responsavel = :id AND uid_firebase = :uid`,
+    {
+      id,
+      uid,
+      cpf: body.cpf_responsavel,
+      nome: body.nm_responsavel,
+      telefone: body.nr_telefone_responsavel,
+    }
+  );
+  return (result.rowsAffected ?? 0) > 0;
+}
+
+export async function remover(id: number, uid: string): Promise<boolean> {
+  // ON DELETE CASCADE no schema já cuida de remover Animais e Consultas vinculados.
+  const result = await runQuery(
+    `DELETE FROM T_CLYVO_RESPONSAVEL WHERE id_responsavel = :id AND uid_firebase = :uid`,
+    { id, uid }
+  );
+  return (result.rowsAffected ?? 0) > 0;
+}
+
+/**
+ * Conta quantos animais um responsável ainda tem.
+ * Não é usado diretamente aqui (o CASCADE do banco já remove tudo junto),
+ * mas fica disponível caso o time queira, no futuro, impedir a remoção
+ * do responsável enquanto ele ainda tiver animais vinculados, em vez de
+ * deixar o CASCADE remover tudo silenciosamente.
+ */
+export async function contarAnimaisVinculados(idResponsavel: number): Promise<number> {
+  const result = await runQuery<{ TOTAL: number }>(
+    `SELECT COUNT(*) AS total FROM T_CLYVO_ANIMAL WHERE id_responsavel = :id`,
+    { id: idResponsavel }
+  );
+  return result.rows?.[0]?.TOTAL ?? 0;
+}
+
+
+===== ./src/services/usuarioService.ts =====
+import { runQuery } from "../config/database";
+
+export interface Usuario {
+  id_usuario: number;
+  nm_usuario: string;
+  email_usuario: string;
+  senha_hash: string;
+}
+
+export async function buscarPorEmail(email: string): Promise<Usuario | null> {
+  const result = await runQuery<Usuario>(
+    `SELECT id_usuario, nm_usuario, email_usuario, senha_hash
+     FROM T_CLYVO_USUARIO
+     WHERE email_usuario = :email`,
+    { email }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function buscarPorId(id: string): Promise<Usuario | null> {
+  const result = await runQuery<Usuario>(
+    `SELECT id_usuario, nm_usuario, email_usuario, senha_hash
+     FROM T_CLYVO_USUARIO
+     WHERE id_usuario = :id`,
+    { id }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function criar(nome: string, email: string, senhaHash: string): Promise<Usuario> {
+  const result = await runQuery<{ id_usuario: number }>(
+    `INSERT INTO T_CLYVO_USUARIO (nm_usuario, email_usuario, senha_hash)
+     VALUES (:nome, :email, :senhaHash)
+     RETURNING id_usuario INTO :novoId`,
+    {
+      nome,
+      email,
+      senhaHash,
+      novoId: { dir: 3003, type: 2010 },
+    }
+  );
+
+  const novoId = (result.outBinds as any).novoId[0];
+  return {
+    id_usuario: novoId,
+    nm_usuario: nome,
+    email_usuario: email,
+    senha_hash: senhaHash,
+  };
+}
+
+export async function atualizar(id: string, nome: string, email: string, senhaHash?: string): Promise<void> {
+  if (senhaHash) {
+    await runQuery(
+      `UPDATE T_CLYVO_USUARIO
+       SET nm_usuario = :nome, email_usuario = :email, senha_hash = :senhaHash
+       WHERE id_usuario = :id`,
+      { id, nome, email, senhaHash }
+    );
+  } else {
+    await runQuery(
+      `UPDATE T_CLYVO_USUARIO
+       SET nm_usuario = :nome, email_usuario = :email
+       WHERE id_usuario = :id`,
+      { id, nome, email }
+    );
+  }
+}
+
+export async function apagar(id: string): Promise<void> {
+  await runQuery(
+    `DELETE FROM T_CLYVO_USUARIO WHERE id_usuario = :id`,
+    { id }
+  );
+}
+
+===== ./src/types/index.ts =====
+export type StatusConsulta = 'Agendado' | 'Concluido' | 'Atrasado';
+
+export interface Responsavel {
+  id_responsavel: number;
+  uid_firebase: string;
+  cpf_responsavel: string;
+  nm_responsavel: string;
+  nr_telefone_responsavel: string;
+}
+
+export interface Animal {
+  id_animal: number;
+  rg_animal: string | null;
+  nr_microchip_animal: string | null;
+  nm_animal: string;
+  dt_nascimento_animal: string | null; // ISO date string
+  peso_animal: number | null;
+  especie_animal: string;
+  raca_animal: string | null;
+  id_responsavel: number;
+}
+
+export interface Consulta {
+  id_consulta: number;
+  historico_consulta: string;
+  st_consulta: StatusConsulta;
+  dt_consulta: string; // ISO date string
+  hr_consulta: string; // "HH:MM"
+  id_animal: number;
+}
+
+// Corpo esperado no POST /responsaveis (uid_firebase vem do token, não do body)
+export interface CriarResponsavelBody {
+  cpf_responsavel: string;
+  nm_responsavel: string;
+  nr_telefone_responsavel: string;
+}
+
+// Corpo esperado no POST /animais
+export interface CriarAnimalBody {
+  nm_animal: string;
+  especie_animal: string;
+  raca_animal?: string;
+  dt_nascimento_animal?: string;
+  peso_animal?: number;
+  rg_animal?: string;
+  nr_microchip_animal?: string;
+  id_responsavel: number;
+}
+
+// Corpo esperado no POST /consultas
+export interface CriarConsultaBody {
+  historico_consulta: string;
+  dt_consulta: string;
+  hr_consulta: string;
+  st_consulta?: StatusConsulta;
+  id_animal: number;
+}
+
+// Corpo esperado no PUT /consultas/:id
+export interface AtualizarConsultaBody {
+  historico_consulta: string;
+  dt_consulta: string;
+  hr_consulta: string;
+  st_consulta: StatusConsulta;
+}
+
+// Estende o Request do Express para carregar o usuário autenticado
+declare global {
+  namespace Express {
+    interface Request {
+      uid?: string;
+    }
+  }
+}
+
+
+===== ./tsconfig.json =====
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+
+

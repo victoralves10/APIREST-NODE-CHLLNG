@@ -1,25 +1,21 @@
 import 'dotenv/config';
 import app from './app';
 import { initDatabase, closeDatabase } from './config/database';
-import { initFirebaseAdmin } from './middlewares/auth';
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
 async function start() {
   try {
+    if (!process.env.JWT_SECRET) {
+      console.error('[server] JWT_SECRET não configurado no .env. O servidor não pode iniciar sem isso.');
+      process.exit(1);
+    }
+
     await initDatabase();
-    initFirebaseAdmin();
 
     const server = app.listen(PORT, () => {
-      const authMode = process.env.AUTH_MODE ?? 'strict';
       console.log(`[server] ClyvoVet backend rodando em http://localhost:${PORT}`);
-      console.log(`[server] Modo de autenticação: ${authMode.toUpperCase()}`);
-      if (authMode === 'open') {
-        console.log(
-          '[server] ⚠️  AUTH_MODE=open — o servidor NÃO está validando tokens do Firebase. ' +
-            'Use apenas para testes locais. Troque para "strict" antes de conectar o app de verdade.'
-        );
-      }
+      console.log('[server] Autenticação: JWT próprio (login/cadastro em /auth)');
     });
 
     // Encerramento gracioso: fecha o pool do Oracle antes de derrubar o processo.

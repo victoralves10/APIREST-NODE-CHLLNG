@@ -1,7 +1,8 @@
+import oracledb from 'oracledb';
 import { runQuery } from '../config/database';
 import { Consulta, CriarConsultaBody, AtualizarConsultaBody } from '../types';
 
-// Consulta herda o "dono" via Animal -> Responsavel, por isso o duplo JOIN.
+// Consulta herda o dono via Animal -> Responsavel, por isso o duplo JOIN.
 
 export async function listarPorUsuario(uid: string): Promise<Consulta[]> {
   const result = await runQuery<Consulta>(
@@ -9,9 +10,9 @@ export async function listarPorUsuario(uid: string): Promise<Consulta[]> {
      FROM T_CLYVO_CONSULTA c
      INNER JOIN T_CLYVO_ANIMAL a ON a.id_animal = c.id_animal
      INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
-     WHERE r.uid_firebase = :uid
+     WHERE r.id_usuario_dono = :idUsuario
      ORDER BY c.dt_consulta DESC`,
-    { uid }
+    { idUsuario: Number(uid) }
   );
   return result.rows ?? [];
 }
@@ -22,8 +23,8 @@ export async function buscarPorId(id: number, uid: string): Promise<Consulta | n
      FROM T_CLYVO_CONSULTA c
      INNER JOIN T_CLYVO_ANIMAL a ON a.id_animal = c.id_animal
      INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
-     WHERE c.id_consulta = :id AND r.uid_firebase = :uid`,
-    { id, uid }
+     WHERE c.id_consulta = :id AND r.id_usuario_dono = :idUsuario`,
+    { id, idUsuario: Number(uid) }
   );
   return result.rows?.[0] ?? null;
 }
@@ -34,9 +35,9 @@ export async function listarPorAnimal(idAnimal: number, uid: string): Promise<Co
      FROM T_CLYVO_CONSULTA c
      INNER JOIN T_CLYVO_ANIMAL a ON a.id_animal = c.id_animal
      INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
-     WHERE c.id_animal = :idAnimal AND r.uid_firebase = :uid
+     WHERE c.id_animal = :idAnimal AND r.id_usuario_dono = :idUsuario
      ORDER BY c.dt_consulta DESC`,
-    { idAnimal, uid }
+    { idAnimal, idUsuario: Number(uid) }
   );
   return result.rows ?? [];
 }
@@ -54,7 +55,7 @@ export async function criar(body: CriarConsultaBody): Promise<Consulta> {
       data: body.dt_consulta,
       hora: body.hr_consulta,
       idAnimal: body.id_animal,
-      novoId: { dir: 3003, type: 2010 },
+      novoId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
     }
   );
 
@@ -84,11 +85,11 @@ export async function atualizar(
        AND EXISTS (
          SELECT 1 FROM T_CLYVO_ANIMAL a
          INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
-         WHERE a.id_animal = c.id_animal AND r.uid_firebase = :uid
+         WHERE a.id_animal = c.id_animal AND r.id_usuario_dono = :idUsuario
        )`,
     {
       id,
-      uid,
+      idUsuario: Number(uid),
       historico: body.historico_consulta,
       status: body.st_consulta,
       data: body.dt_consulta,
@@ -105,9 +106,9 @@ export async function remover(id: number, uid: string): Promise<boolean> {
        AND EXISTS (
          SELECT 1 FROM T_CLYVO_ANIMAL a
          INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
-         WHERE a.id_animal = c.id_animal AND r.uid_firebase = :uid
+         WHERE a.id_animal = c.id_animal AND r.id_usuario_dono = :idUsuario
        )`,
-    { id, uid }
+    { id, idUsuario: Number(uid) }
   );
   return (result.rowsAffected ?? 0) > 0;
 }

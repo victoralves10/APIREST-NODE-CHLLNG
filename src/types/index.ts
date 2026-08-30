@@ -2,7 +2,7 @@ export type StatusConsulta = 'Agendado' | 'Concluido' | 'Atrasado';
 
 export interface Responsavel {
   id_responsavel: number;
-  uid_firebase: string;
+  id_usuario_dono: number;
   cpf_responsavel: string;
   nm_responsavel: string;
   nr_telefone_responsavel: string;
@@ -29,7 +29,7 @@ export interface Consulta {
   id_animal: number;
 }
 
-// Corpo esperado no POST /responsaveis (uid_firebase vem do token, não do body)
+// Corpo esperado no POST /responsaveis (id_usuario_dono vem do token, não do body)
 export interface CriarResponsavelBody {
   cpf_responsavel: string;
   nm_responsavel: string;
