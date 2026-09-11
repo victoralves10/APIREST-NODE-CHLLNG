@@ -1,0 +1,2496 @@
+===== ./package.json =====
+{
+  "name": "clyvo-backend",
+  "version": "1.0.0",
+  "description": "Backend REST do ClyvoVet Mobile — Sprint 3 (Mobile Application Development)",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.3",
+    "oracledb": "^6.7.1",
+    "swagger-ui-express": "^5.0.1",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.9.0",
+    "@types/oracledb": "^6.5.2",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@types/yamljs": "^0.2.34",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
+
+
+===== ./tsconfig.json =====
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+
+
+===== ./openapi.yaml =====
+openapi: 3.0.3
+info:
+  title: ClyvoVet API
+  description: >
+    API REST do ClyvoVet Mobile — gestão de consultas, animais e responsáveis.
+    Cada usuário só enxerga os próprios dados.
+
+
+    **Como testar:** primeiro chame POST /auth/cadastro (ou /auth/login se já
+    tiver conta) para obter um token. Depois clique no botão "Authorize" no
+    topo desta página e cole o token (sem a palavra "Bearer", o Swagger já
+    adiciona isso sozinho). A partir daí, todas as rotas protegidas enviam
+    o token automaticamente.
+  version: 1.0.0
+
+servers:
+  - url: https://apirest-node-chllng.onrender.com
+    description: Servidor em produção (Render)
+  - url: http://localhost:3000
+    description: Servidor local de desenvolvimento
+
+tags:
+  - name: Health
+    description: Verificação de status do servidor
+  - name: Autenticação
+    description: Cadastro, login e logout — não exigem token
+  - name: Consultas
+  - name: Animais
+  - name: Responsáveis
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Verifica se o servidor está no ar
+      security: []
+      responses:
+        '200':
+          description: Servidor funcionando
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /auth/cadastro:
+    post:
+      tags: [Autenticação]
+      summary: Cria uma nova conta
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CadastroInput'
+            example:
+              nome: "Maria Veterinária"
+              email: "maria@clyvovet.dev"
+              senha: "senha123456"
+      responses:
+        '201':
+          description: Conta criada, token retornado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '409':
+          description: Já existe uma conta com este e-mail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Autentica com e-mail e senha
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+            example:
+              email: "maria@clyvovet.dev"
+              senha: "senha123456"
+      responses:
+        '200':
+          description: Login efetuado, token retornado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '401':
+          description: E-mail ou senha incorretos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /auth/logout:
+    post:
+      tags: [Autenticação]
+      summary: Encerra a sessão (o token deve ser descartado pelo app)
+      security: []
+      responses:
+        '200':
+          description: Logout confirmado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /auth/perfil:
+    get:
+      tags: [Autenticação]
+      summary: Busca os dados do usuário logado (nome, e-mail)
+      responses:
+        '200':
+          description: Dados do usuário
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id_usuario:
+                    type: integer
+                  nm_usuario:
+                    type: string
+                  email_usuario:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    put:
+      tags: [Autenticação]
+      summary: Atualiza nome, e-mail e (opcionalmente) senha do usuário logado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarPerfilInput'
+            example:
+              nome: "Maria Veterinária"
+              email: "maria@clyvovet.dev"
+      responses:
+        '200':
+          description: Perfil atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id_usuario:
+                    type: integer
+                  nm_usuario:
+                    type: string
+                  email_usuario:
+                    type: string
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+
+  /auth/conta:
+    delete:
+      tags: [Autenticação]
+      summary: Apaga a conta do usuário logado (exige confirmação de senha)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApagarContaInput'
+            example:
+              senha: "senha123456"
+      responses:
+        '204':
+          description: Conta apagada com sucesso
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '401':
+          description: Senha incorreta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /responsaveis:
+    get:
+      tags: [Responsáveis]
+      summary: Lista responsáveis do usuário (ou busca por CPF)
+      parameters:
+        - name: cpf
+          in: query
+          required: false
+          description: Se informado, retorna o responsável com esse CPF (ou null) em vez da lista completa
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de responsáveis (ou um único objeto/null, se filtrado por cpf)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Responsavel'
+                  - $ref: '#/components/schemas/Responsavel'
+                nullable: true
+    post:
+      tags: [Responsáveis]
+      summary: Cria um novo responsável
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsavelInput'
+            example:
+              cpf_responsavel: "12345678900"
+              nm_responsavel: "Maria Silva"
+              nr_telefone_responsavel: "11999998888"
+      responses:
+        '201':
+          description: Responsável criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Responsavel'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+
+  /responsaveis/{id}:
+    get:
+      tags: [Responsáveis]
+      summary: Busca um responsável por id
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Responsável encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Responsavel'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    put:
+      tags: [Responsáveis]
+      summary: Atualiza um responsável
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsavelInput'
+      responses:
+        '200':
+          description: Responsável atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Responsavel'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags: [Responsáveis]
+      summary: Remove um responsável (cascata — remove animais e consultas vinculados)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Removido com sucesso
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /animais:
+    get:
+      tags: [Animais]
+      summary: Lista animais do usuário (ou busca por microchip)
+      parameters:
+        - name: microchip
+          in: query
+          required: false
+          description: Se informado, retorna o animal com esse microchip (ou null) em vez da lista completa
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de animais (ou um único objeto/null, se filtrado por microchip)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Animal'
+                  - $ref: '#/components/schemas/Animal'
+                nullable: true
+    post:
+      tags: [Animais]
+      summary: Cria um novo animal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+            example:
+              nm_animal: "Bidu"
+              especie_animal: "Cachorro"
+              raca_animal: "Vira-lata"
+              dt_nascimento_animal: "2023-05-10"
+              peso_animal: 12.5
+              rg_animal: null
+              nr_microchip_animal: "9988"
+              id_responsavel: 1
+      responses:
+        '201':
+          description: Animal criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+
+  /animais/{id}:
+    get:
+      tags: [Animais]
+      summary: Busca um animal por id
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Animal encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    put:
+      tags: [Animais]
+      summary: Atualiza um animal
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+      responses:
+        '200':
+          description: Animal atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags: [Animais]
+      summary: Remove um animal (cascata — remove consultas vinculadas)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Removido com sucesso
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /animais/{id}/consultas:
+    get:
+      tags: [Animais]
+      summary: Lista o histórico de consultas de um animal
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Lista de consultas do animal
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Consulta'
+
+  /consultas:
+    get:
+      tags: [Consultas]
+      summary: Lista consultas do usuário
+      responses:
+        '200':
+          description: Lista de consultas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Consulta'
+    post:
+      tags: [Consultas]
+      summary: Cria uma nova consulta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaInput'
+            example:
+              historico_consulta: "Check-up anual, tudo normal"
+              dt_consulta: "2026-09-15"
+              hr_consulta: "10:00"
+              st_consulta: "Agendado"
+              id_animal: 1
+      responses:
+        '201':
+          description: Consulta criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consulta'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+
+  /consultas/{id}:
+    get:
+      tags: [Consultas]
+      summary: Busca uma consulta por id
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Consulta encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consulta'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    put:
+      tags: [Consultas]
+      summary: Atualiza uma consulta
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaUpdateInput'
+            example:
+              historico_consulta: "Check-up anual — concluído sem alterações"
+              dt_consulta: "2026-09-15"
+              hr_consulta: "10:00"
+              st_consulta: "Concluido"
+      responses:
+        '200':
+          description: Consulta atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consulta'
+        '400':
+          $ref: '#/components/responses/CamposObrigatorios'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+    delete:
+      tags: [Consultas]
+      summary: Remove uma consulta
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Removida com sucesso
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Token obtido em POST /auth/login ou POST /auth/cadastro.
+        Cole apenas o token no botão "Authorize" — o prefixo "Bearer" é
+        adicionado automaticamente pelo Swagger UI.
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  responses:
+    NaoEncontrado:
+      description: Registro não encontrado (ou não pertence ao usuário)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    CamposObrigatorios:
+      description: Campos obrigatórios ausentes ou inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+
+  schemas:
+    Erro:
+      type: object
+      properties:
+        error:
+          type: string
+
+    CadastroInput:
+      type: object
+      required: [nome, email, senha]
+      properties:
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          format: password
+          description: Mínimo 6 caracteres
+
+    LoginInput:
+      type: object
+      required: [email, senha]
+      properties:
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          format: password
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT — use no botão "Authorize" para as demais rotas
+        usuario:
+          type: object
+          properties:
+            id_usuario:
+              type: integer
+            nm_usuario:
+              type: string
+            email_usuario:
+              type: string
+
+    AtualizarPerfilInput:
+      type: object
+      required: [nome, email]
+      properties:
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        senha:
+          type: string
+          format: password
+          description: Opcional — só envie se quiser trocar a senha atual. Mínimo 6 caracteres.
+
+    ApagarContaInput:
+      type: object
+      required: [senha]
+      properties:
+        senha:
+          type: string
+          format: password
+          description: Senha atual, exigida para confirmar a exclusão da conta.
+
+    Responsavel:
+      type: object
+      properties:
+        id_responsavel:
+          type: integer
+        cpf_responsavel:
+          type: string
+        nm_responsavel:
+          type: string
+        nr_telefone_responsavel:
+          type: string
+
+    ResponsavelInput:
+      type: object
+      required: [cpf_responsavel, nm_responsavel, nr_telefone_responsavel]
+      properties:
+        cpf_responsavel:
+          type: string
+        nm_responsavel:
+          type: string
+        nr_telefone_responsavel:
+          type: string
+
+    Animal:
+      type: object
+      properties:
+        id_animal:
+          type: integer
+        rg_animal:
+          type: string
+          nullable: true
+        nr_microchip_animal:
+          type: string
+          nullable: true
+        nm_animal:
+          type: string
+        dt_nascimento_animal:
+          type: string
+          format: date
+          nullable: true
+        peso_animal:
+          type: number
+          nullable: true
+        especie_animal:
+          type: string
+        raca_animal:
+          type: string
+          nullable: true
+        id_responsavel:
+          type: integer
+
+    AnimalInput:
+      type: object
+      required: [nm_animal, especie_animal, id_responsavel]
+      properties:
+        nm_animal:
+          type: string
+        especie_animal:
+          type: string
+        raca_animal:
+          type: string
+        dt_nascimento_animal:
+          type: string
+          format: date
+        peso_animal:
+          type: number
+        rg_animal:
+          type: string
+          nullable: true
+        nr_microchip_animal:
+          type: string
+          nullable: true
+        id_responsavel:
+          type: integer
+
+    Consulta:
+      type: object
+      properties:
+        id_consulta:
+          type: integer
+        historico_consulta:
+          type: string
+        st_consulta:
+          type: string
+          enum: [Agendado, Concluido, Atrasado]
+        dt_consulta:
+          type: string
+          format: date
+        hr_consulta:
+          type: string
+          example: "14:30"
+        id_animal:
+          type: integer
+
+    ConsultaInput:
+      type: object
+      required: [historico_consulta, dt_consulta, hr_consulta, id_animal]
+      properties:
+        historico_consulta:
+          type: string
+        dt_consulta:
+          type: string
+          format: date
+        hr_consulta:
+          type: string
+          example: "14:30"
+        st_consulta:
+          type: string
+          enum: [Agendado, Concluido, Atrasado]
+          description: Se omitido, o backend assume "Agendado"
+        id_animal:
+          type: integer
+
+    ConsultaUpdateInput:
+      type: object
+      required: [historico_consulta, dt_consulta, hr_consulta, st_consulta]
+      properties:
+        historico_consulta:
+          type: string
+        dt_consulta:
+          type: string
+          format: date
+        hr_consulta:
+          type: string
+          example: "14:30"
+        st_consulta:
+          type: string
+          enum: [Agendado, Concluido, Atrasado]
+
+===== ./README.md =====
+# ClyvoVet Backend
+
+API REST em Node.js + TypeScript + Oracle, feita para dar suporte ao **ClyvoVet Mobile** (Sprint 3 — Mobile Application Development).
+
+## O que essa API faz
+
+Expõe CRUD completo para as 3 entidades centrais do domínio:
+- **Consultas** (`/consultas`)
+- **Animais** (`/animais`)
+- **Responsáveis** (`/responsaveis`)
+
+Cada usuário só enxerga os próprios dados — o isolamento é feito pelo `uid` do Firebase (ver seção Autenticação).
+
+## Stack
+
+- Node.js + TypeScript
+- Express
+- `node-oracledb` (driver oficial Oracle, sem ORM)
+- `firebase-admin` (validação de token, não login)
+
+## Setup
+
+### 1. Instalar dependências
+
+```bash
+npm install
+```
+
+### 2. Configurar o `.env`
+
+Copie o exemplo e preencha com seus dados reais:
+
+```bash
+cp .env.example .env
+```
+
+Preencha `ORACLE_USER`, `ORACLE_PASSWORD` e `ORACLE_CONNECT_STRING` com as credenciais do seu Oracle.
+
+### 3. Rodar o script do banco
+
+Execute `schema-clyvovet.sql` no seu Oracle (via SQL Developer ou similar) **antes** de subir o servidor. Isso cria as 3 tabelas e insere alguns dados de exemplo.
+
+> ⚠️ O script tem `'SEU_UID_AQUI'` nos INSERTs de exemplo — troque pelo uid real do seu usuário de teste no Firebase quando ele existir (ou pelo mesmo valor usado em `AUTH_MODE=open`, ver abaixo, para testar agora).
+
+### 4. Rodar o servidor em modo desenvolvimento
+
+```bash
+npm run dev
+```
+
+Se tudo estiver certo, o terminal mostra:
+
+```
+[server] ClyvoVet backend rodando em http://localhost:3000
+[server] Modo de autenticação: OPEN
+```
+
+### 5. Testar pelo Swagger
+
+Abra no navegador:
+
+```
+http://localhost:3000/docs
+```
+
+Você verá todas as rotas organizadas por grupo (Consultas, Animais, Responsáveis), cada uma com os campos esperados e exemplos prontos. Para testar:
+
+1. Clique em qualquer rota para expandir
+2. Clique em **"Try it out"**
+3. Se a rota pedir o header `x-dev-uid`, preencha com `dev-user-1`
+4. Preencha o corpo da requisição (já vem com um exemplo, é só editar)
+5. Clique em **"Execute"**
+6. A resposta real do servidor aparece logo abaixo, com status code e corpo
+
+Isso substitui o Postman/Insomnia para testes rápidos — REQUESTS.md continua disponível como referência de texto simples, caso prefira.
+
+## Autenticação — dois modos
+
+Controlado pela variável `AUTH_MODE` no `.env`:
+
+### `AUTH_MODE=open` (agora, enquanto o Firebase não está plugado)
+
+Não exige token nenhum. Todo request usa um `uid` fixo (`dev-user-1`), a menos que você mande o header `x-dev-uid` com outro valor — útil para simular usuários diferentes no Postman.
+
+```
+GET /consultas
+x-dev-uid: dev-user-1
+```
+
+Use este modo para testar o CRUD completo (rotas, banco, cascata de exclusão) sem precisar do Firebase ainda.
+
+### `AUTH_MODE=strict` (produção — quando o Firebase estiver plugado)
+
+Exige um ID Token válido do Firebase em toda rota:
+
+```
+GET /consultas
+Authorization: Bearer <id-token-do-firebase>
+```
+
+Para ativar:
+1. No [Firebase Console](https://console.firebase.google.com), vá em **Configurações do projeto > Contas de serviço** e gere uma nova chave privada (baixa um `.json`).
+2. Cole o conteúdo desse JSON, como uma linha só, na variável `FIREBASE_SERVICE_ACCOUNT_JSON` do `.env`.
+3. Troque `AUTH_MODE` para `strict`.
+4. Reinicie o servidor.
+
+## Rotas disponíveis
+
+Ver `REQUESTS.md` para exemplos prontos de cada rota, ou testar direto pelo Swagger em `/docs` (recomendado — ver seção Setup acima).
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/health` | Verifica se o servidor está de pé (sem autenticação) |
+| GET | `/consultas` | Lista consultas do usuário |
+| GET | `/consultas/:id` | Detalhe de uma consulta |
+| POST | `/consultas` | Cria consulta |
+| PUT | `/consultas/:id` | Atualiza consulta |
+| DELETE | `/consultas/:id` | Remove consulta |
+| GET | `/animais` | Lista animais do usuário |
+| GET | `/animais?microchip=XXX` | Busca animal por microchip |
+| GET | `/animais/:id` | Detalhe de um animal |
+| GET | `/animais/:id/consultas` | Histórico de consultas do animal |
+| POST | `/animais` | Cria animal |
+| PUT | `/animais/:id` | Atualiza animal |
+| DELETE | `/animais/:id` | Remove animal (cascata: remove consultas vinculadas) |
+| GET | `/responsaveis` | Lista responsáveis do usuário |
+| GET | `/responsaveis?cpf=XXX` | Busca responsável por CPF |
+| GET | `/responsaveis/:id` | Detalhe de um responsável |
+| POST | `/responsaveis` | Cria responsável |
+| PUT | `/responsaveis/:id` | Atualiza responsável |
+| DELETE | `/responsaveis/:id` | Remove responsável (cascata: remove animais e consultas vinculados) |
+
+## Estrutura de pastas
+
+```
+src/
+├── config/
+│   └── database.ts        # Pool de conexões Oracle
+├── middlewares/
+│   └── auth.ts             # Validação de token (open/strict)
+├── services/                # Acesso a dados (SQL puro via node-oracledb)
+│   ├── consultaService.ts
+│   ├── animalService.ts
+│   └── responsavelService.ts
+├── controllers/              # Recebe request, valida entrada, chama service
+│   ├── consultaController.ts
+│   ├── animalController.ts
+│   └── responsavelController.ts
+├── routes/                    # Define os caminhos HTTP de cada recurso
+│   ├── consultaRoutes.ts
+│   ├── animalRoutes.ts
+│   └── responsavelRoutes.ts
+├── types/
+│   └── index.ts               # Tipos TypeScript compartilhados
+├── app.ts                      # Monta o Express e aplica as rotas
+└── server.ts                   # Sobe o servidor, inicializa Oracle e Firebase
+```
+
+## Build para produção
+
+```bash
+npm run build
+npm start
+```
+
+
+===== ./REQUESTS.md =====
+# Exemplos de requests (para Postman / Insomnia)
+
+Todos os exemplos assumem `AUTH_MODE=open` e o servidor rodando em `http://localhost:3000`.
+
+Header usado em todos os requests abaixo (exceto `/health`):
+```
+x-dev-uid: dev-user-1
+```
+
+Esse é o mesmo uid que já está nos dados de exemplo do `schema-clyvovet.sql` (depois de você trocar `'SEU_UID_AQUI'` por `'dev-user-1'` nos INSERTs, para poder testar agora sem precisar do Firebase).
+
+---
+
+## Health check
+
+```
+GET http://localhost:3000/health
+```
+
+---
+
+## Responsáveis
+
+### Listar todos
+```
+GET http://localhost:3000/responsaveis
+x-dev-uid: dev-user-1
+```
+
+### Buscar por CPF (usado na deduplicação do app)
+```
+GET http://localhost:3000/responsaveis?cpf=45812579024
+x-dev-uid: dev-user-1
+```
+
+### Criar
+```
+POST http://localhost:3000/responsaveis
+x-dev-uid: dev-user-1
+Content-Type: application/json
+
+{
+  "cpf_responsavel": "12345678900",
+  "nm_responsavel": "Maria Silva",
+  "nr_telefone_responsavel": "11999998888"
+}
+```
+
+### Atualizar
+```
+PUT http://localhost:3000/responsaveis/1
+x-dev-uid: dev-user-1
+Content-Type: application/json
+
+{
+  "cpf_responsavel": "45812579024",
+  "nm_responsavel": "Jaci Oliveira Santos",
+  "nr_telefone_responsavel": "11934567890"
+}
+```
+
+### Remover
+```
+DELETE http://localhost:3000/responsaveis/1
+x-dev-uid: dev-user-1
+```
+
+---
+
+## Animais
+
+### Listar todos
+```
+GET http://localhost:3000/animais
+x-dev-uid: dev-user-1
+```
+
+### Buscar por microchip (deduplicação)
+```
+GET http://localhost:3000/animais?microchip=5482
+x-dev-uid: dev-user-1
+```
+
+### Histórico de consultas de um animal
+```
+GET http://localhost:3000/animais/1/consultas
+x-dev-uid: dev-user-1
+```
+
+### Criar
+```
+POST http://localhost:3000/animais
+x-dev-uid: dev-user-1
+Content-Type: application/json
+
+{
+  "nm_animal": "Bidu",
+  "especie_animal": "Cachorro",
+  "raca_animal": "Vira-lata",
+  "dt_nascimento_animal": "2023-05-10",
+  "peso_animal": 12.5,
+  "rg_animal": null,
+  "nr_microchip_animal": "9988",
+  "id_responsavel": 1
+}
+```
+
+### Atualizar
+```
+PUT http://localhost:3000/animais/1
+x-dev-uid: dev-user-1
+Content-Type: application/json
+
+{
+  "nm_animal": "Arthur",
+  "especie_animal": "Cachorro",
+  "raca_animal": "Golden Retriever",
+  "dt_nascimento_animal": "2024-04-20",
+  "peso_animal": 62.0,
+  "rg_animal": null,
+  "nr_microchip_animal": "5482"
+}
+```
+
+### Remover (remove em cascata as consultas vinculadas)
+```
+DELETE http://localhost:3000/animais/1
+x-dev-uid: dev-user-1
+```
+
+---
+
+## Consultas
+
+### Listar todas
+```
+GET http://localhost:3000/consultas
+x-dev-uid: dev-user-1
+```
+
+### Criar
+```
+POST http://localhost:3000/consultas
+x-dev-uid: dev-user-1
+Content-Type: application/json
+
+{
+  "historico_consulta": "Check-up anual, tudo normal",
+  "dt_consulta": "2026-09-15",
+  "hr_consulta": "10:00",
+  "st_consulta": "Agendado",
+  "id_animal": 1
+}
+```
+
+### Atualizar
+```
+PUT http://localhost:3000/consultas/1
+x-dev-uid: dev-user-1
+Content-Type: application/json
+
+{
+  "historico_consulta": "Check-up anual — concluído sem alterações",
+  "dt_consulta": "2026-09-15",
+  "hr_consulta": "10:00",
+  "st_consulta": "Concluido"
+}
+```
+
+### Remover
+```
+DELETE http://localhost:3000/consultas/1
+x-dev-uid: dev-user-1
+```
+
+---
+
+## Fluxo completo de teste sugerido
+
+1. `GET /health` — confirma que o servidor está de pé
+2. `GET /responsaveis` — deve retornar os 2 responsáveis de exemplo (se você já rodou os INSERTs)
+3. `GET /animais` — deve retornar os 2 animais de exemplo
+4. `GET /consultas` — deve retornar as 2 consultas de exemplo
+5. `POST /responsaveis` — cria um novo, anota o `id_responsavel` retornado
+6. `POST /animais` — usa o `id_responsavel` do passo anterior
+7. `POST /consultas` — usa o `id_animal` do passo anterior
+8. `PUT /consultas/:id` — edita a consulta recém-criada, muda o status para `Concluido`
+9. `DELETE /animais/:id` — remove o animal criado, depois confira que `GET /consultas` não traz mais a consulta dele (cascata funcionando)
+
+
+===== ./schema-clyvovet.sql =====
+-- ============================================================
+-- ClyvoVet — Schema completo (Sprint 3 Mobile)
+-- 4 tabelas: Usuario, Responsavel, Animal, Consulta.
+-- Sem procedures/functions/triggers — isso é escopo de outra disciplina.
+-- Autenticação via JWT próprio (bcrypt + jsonwebtoken no backend).
+--
+-- Se rodar pela primeira vez, os DROP TABLE abaixo vão dar erro
+-- "table or view does not exist" — é esperado, pode ignorar e
+-- seguir rodando o resto do script normalmente.
+-- ============================================================
+
+-- ============================================================
+-- DROP (ordem inversa de dependência: quem referencia primeiro,
+-- quem é referenciado por último)
+-- ============================================================
+
+DROP TABLE T_CLYVO_CONSULTA;
+DROP TABLE T_CLYVO_ANIMAL;
+DROP TABLE T_CLYVO_RESPONSAVEL;
+DROP TABLE T_CLYVO_USUARIO;
+
+-- ============================================================
+-- Usuário
+-- Guarda quem pode logar no app (nome, e-mail e a senha já
+-- criptografada — nunca a senha em texto puro). É criado quando
+-- alguém se cadastra pela tela de Cadastro do app.
+-- ============================================================
+CREATE TABLE T_CLYVO_USUARIO (
+    id_usuario     NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    nm_usuario     VARCHAR2(100) NOT NULL,
+    email_usuario  VARCHAR2(150) NOT NULL,
+    senha_hash     VARCHAR2(255) NOT NULL,
+    dt_criacao     DATE DEFAULT SYSDATE NOT NULL,
+    CONSTRAINT uq_usuario_email UNIQUE (email_usuario)
+);
+
+-- ============================================================
+-- Responsável
+-- É o tutor/dono do animal (nome, CPF, telefone). Cada
+-- responsável pertence a um usuário do app (coluna id_usuario_dono,
+-- que guarda o id_usuario de quem cadastrou) — assim, cada
+-- usuário só vê os responsáveis que ele mesmo criou.
+-- ============================================================
+CREATE TABLE T_CLYVO_RESPONSAVEL (
+    id_responsavel           NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    id_usuario_dono          NUMBER NOT NULL,
+    cpf_responsavel          VARCHAR2(20) NOT NULL,
+    nm_responsavel           VARCHAR2(100) NOT NULL,
+    nr_telefone_responsavel  VARCHAR2(20) NOT NULL,
+    CONSTRAINT fk_responsavel_usuario FOREIGN KEY (id_usuario_dono)
+        REFERENCES T_CLYVO_USUARIO (id_usuario)
+        ON DELETE CASCADE,
+    CONSTRAINT uq_responsavel_cpf_usuario UNIQUE (id_usuario_dono, cpf_responsavel)
+);
+
+-- ============================================================
+-- Animal
+-- É o paciente (nome, espécie, raça, peso, etc). Sempre pertence
+-- a um responsável — se o responsável for removido, o animal
+-- dele também é removido automaticamente (ON DELETE CASCADE).
+-- ============================================================
+CREATE TABLE T_CLYVO_ANIMAL (
+    id_animal             NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    rg_animal             VARCHAR2(20),
+    nr_microchip_animal   VARCHAR2(20),
+    nm_animal             VARCHAR2(100) NOT NULL,
+    dt_nascimento_animal  DATE,
+    peso_animal           NUMBER(6,2),
+    especie_animal        VARCHAR2(50) NOT NULL,
+    raca_animal           VARCHAR2(50),
+    id_responsavel        NUMBER NOT NULL,
+    CONSTRAINT fk_animal_responsavel FOREIGN KEY (id_responsavel)
+        REFERENCES T_CLYVO_RESPONSAVEL (id_responsavel)
+        ON DELETE CASCADE
+);
+
+-- ============================================================
+-- Consulta
+-- É o registro de atendimento do animal (motivo, data, hora,
+-- status). Sempre pertence a um animal — se o animal for
+-- removido, as consultas dele também são (ON DELETE CASCADE).
+-- Status só pode ser: Agendado, Concluido ou Atrasado.
+-- ============================================================
+CREATE TABLE T_CLYVO_CONSULTA (
+    id_consulta          NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    historico_consulta   VARCHAR2(500) NOT NULL,
+    st_consulta          VARCHAR2(20) NOT NULL,
+    dt_consulta          DATE NOT NULL,
+    hr_consulta          VARCHAR2(5) NOT NULL,
+    id_animal            NUMBER NOT NULL,
+    CONSTRAINT ck_status_consulta CHECK (st_consulta IN ('Agendado', 'Concluido', 'Atrasado')),
+    CONSTRAINT fk_consulta_animal FOREIGN KEY (id_animal)
+        REFERENCES T_CLYVO_ANIMAL (id_animal)
+        ON DELETE CASCADE
+);
+
+-- ============================================================
+-- Índices (deixam as buscas mais comuns do app mais rápidas)
+-- ============================================================
+CREATE INDEX idx_usuario_email ON T_CLYVO_USUARIO (email_usuario);
+CREATE INDEX idx_responsavel_usuario ON T_CLYVO_RESPONSAVEL (id_usuario_dono);
+CREATE INDEX idx_animal_responsavel ON T_CLYVO_ANIMAL (id_responsavel);
+CREATE INDEX idx_consulta_animal ON T_CLYVO_CONSULTA (id_animal);
+
+-- ============================================================
+-- Dados de exemplo
+-- Cria um usuário de teste (dev@clyvovet.dev / senha: dev123456,
+-- já com hash bcrypt correspondente) e os dados de exemplo
+-- vinculados a ele. Se você já tem um usuário de teste criado via
+-- POST /auth/cadastro, pode pular este INSERT de usuário e trocar
+-- o id_usuario_dono abaixo pelo id_usuario real dele.
+-- ============================================================
+
+INSERT INTO T_CLYVO_USUARIO (nm_usuario, email_usuario, senha_hash)
+VALUES ('Usuário de Teste', 'dev@clyvovet.dev', '$2b$10$k2sBI/87IT9DGaGOS3SMQOYxUC4xClFQFIJKwsdZW8LD4JwyDJrr.');
+
+INSERT INTO T_CLYVO_RESPONSAVEL (id_usuario_dono, cpf_responsavel, nm_responsavel, nr_telefone_responsavel)
+VALUES (1, '45812579024', 'Jaci Oliveira', '11934567890');
+
+INSERT INTO T_CLYVO_RESPONSAVEL (id_usuario_dono, cpf_responsavel, nm_responsavel, nr_telefone_responsavel)
+VALUES (1, '54823687074', 'Felipe Santos', '11987456123');
+
+INSERT INTO T_CLYVO_ANIMAL (rg_animal, nr_microchip_animal, nm_animal, dt_nascimento_animal, peso_animal, especie_animal, raca_animal, id_responsavel)
+VALUES (NULL, '5482', 'Arthur', TO_DATE('2024-04-20', 'YYYY-MM-DD'), 60.5, 'Cachorro', 'Golden Retriever', 1);
+
+INSERT INTO T_CLYVO_ANIMAL (rg_animal, nr_microchip_animal, nm_animal, dt_nascimento_animal, peso_animal, especie_animal, raca_animal, id_responsavel)
+VALUES (NULL, NULL, 'Fofucho', TO_DATE('2020-08-10', 'YYYY-MM-DD'), 4.2, 'Gato', 'Laranja', 2);
+
+INSERT INTO T_CLYVO_CONSULTA (historico_consulta, st_consulta, dt_consulta, hr_consulta, id_animal)
+VALUES ('Consulta de rotina, vacinação em dia', 'Concluido', TO_DATE('2026-07-10', 'YYYY-MM-DD'), '14:30', 1);
+
+INSERT INTO T_CLYVO_CONSULTA (historico_consulta, st_consulta, dt_consulta, hr_consulta, id_animal)
+VALUES ('Retorno para avaliação de peso', 'Agendado', TO_DATE('2026-08-25', 'YYYY-MM-DD'), '09:00', 2);
+
+COMMIT;
+
+===== ./src/app.ts =====
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import swaggerUi from 'swagger-ui-express';
+import YAML from 'yamljs';
+import { authMiddleware } from './middlewares/auth';
+import authRoutes from './routes/authRoutes';
+import consultaRoutes from './routes/consultaRoutes';
+import animalRoutes from './routes/animalRoutes';
+import responsavelRoutes from './routes/responsavelRoutes';
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+// Documentação interativa (Swagger UI) — não exige autenticação para ser
+// acessada; os testes feitos a partir dela é que seguem as regras normais.
+const openapiDocument = YAML.load(path.join(__dirname, '..', 'openapi.yaml'));
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiDocument));
+
+// Rota simples de verificação — não exige autenticação, útil para
+// checar rapidamente se o servidor e o banco estão de pé.
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// Login, cadastro e logout — não passam por authMiddleware, pois são
+// justamente como o usuário CONSEGUE um token, não usa um que já tem.
+app.use('/auth', authRoutes);
+
+// A partir daqui, todas as rotas exigem um JWT válido (ver src/middlewares/auth.ts).
+app.use('/consultas', authMiddleware, consultaRoutes);
+app.use('/animais', authMiddleware, animalRoutes);
+app.use('/responsaveis', authMiddleware, responsavelRoutes);
+
+export default app;
+
+===== ./src/config/database.ts =====
+import oracledb from 'oracledb';
+
+oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
+oracledb.fetchAsString = [oracledb.CLOB];
+
+let pool: oracledb.Pool | null = null;
+
+export async function initDatabase(): Promise<void> {
+  if (pool) return;
+
+  const { ORACLE_USER, ORACLE_PASSWORD, ORACLE_CONNECT_STRING } = process.env;
+
+  if (!ORACLE_USER || !ORACLE_PASSWORD || !ORACLE_CONNECT_STRING) {
+    throw new Error(
+      'Variáveis de ambiente do Oracle ausentes. Confira o arquivo .env (veja .env.example).'
+    );
+  }
+
+  pool = await oracledb.createPool({
+    user: ORACLE_USER,
+    password: ORACLE_PASSWORD,
+    connectString: ORACLE_CONNECT_STRING,
+    poolMin: 1,
+    poolMax: 5,
+    poolIncrement: 1,
+  });
+
+  console.log('[database] Pool de conexões Oracle criado com sucesso.');
+}
+
+/**
+ * O node-oracledb devolve os nomes das colunas em MAIÚSCULO por padrão
+ * (ex: SENHA_HASH), mesmo quando a coluna foi criada em minúsculo no SQL.
+ * Todo o código dos services usa os nomes em minúsculo (senha_hash,
+ * nm_usuario, etc.), então esta função converte cada linha retornada
+ * antes de devolver — evita ter que reescrever cada query com aspas
+ * duplas ou renomear cada service individualmente.
+ */
+function paraMinusculo<T>(linha: any): T {
+  const convertida: any = {};
+  for (const chave in linha) {
+    convertida[chave.toLowerCase()] = linha[chave];
+  }
+  return convertida as T;
+}
+
+export async function runQuery<T = any>(
+  sql: string,
+  binds: oracledb.BindParameters = {},
+  options: oracledb.ExecuteOptions = {}
+): Promise<oracledb.Result<T>> {
+  if (!pool) {
+    throw new Error('Pool do Oracle ainda não foi inicializado. Chame initDatabase() primeiro.');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    const result = await connection.execute<T>(sql, binds, {
+      autoCommit: true,
+      ...options,
+    });
+
+    if (result.rows) {
+      result.rows = result.rows.map((linha) => paraMinusculo<T>(linha));
+    }
+
+    return result;
+  } finally {
+    await connection.close();
+  }
+}
+
+export async function closeDatabase(): Promise<void> {
+  if (pool) {
+    await pool.close(10);
+    pool = null;
+    console.log('[database] Pool de conexões Oracle fechado.');
+  }
+}
+
+===== ./src/controllers/animalController.ts =====
+import { Request, Response } from 'express';
+import * as animalService from '../services/animalService';
+import * as consultaService from '../services/consultaService';
+
+export async function listar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const { microchip } = req.query;
+
+    if (microchip && typeof microchip === 'string') {
+      const animal = await animalService.buscarPorMicrochip(microchip, uid);
+      return res.status(200).json(animal);
+    }
+
+    const animais = await animalService.listarPorUsuario(uid);
+    res.status(200).json(animais);
+  } catch (err) {
+    console.error('[animalController.listar]', err);
+    res.status(500).json({ error: 'Erro ao listar animais.' });
+  }
+}
+
+export async function buscarPorId(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const animal = await animalService.buscarPorId(id, uid);
+
+    if (!animal) {
+      return res.status(404).json({ error: 'Animal não encontrado.' });
+    }
+    res.status(200).json(animal);
+  } catch (err) {
+    console.error('[animalController.buscarPorId]', err);
+    res.status(500).json({ error: 'Erro ao buscar animal.' });
+  }
+}
+
+export async function listarConsultasDoAnimal(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const consultas = await consultaService.listarPorAnimal(id, uid);
+    res.status(200).json(consultas);
+  } catch (err) {
+    console.error('[animalController.listarConsultasDoAnimal]', err);
+    res.status(500).json({ error: 'Erro ao buscar histórico de consultas do animal.' });
+  }
+}
+
+export async function criar(req: Request, res: Response) {
+  try {
+    const { nm_animal, especie_animal, id_responsavel } = req.body;
+
+    if (!nm_animal || !especie_animal || !id_responsavel) {
+      return res.status(400).json({
+        error: 'Campos obrigatórios: nm_animal, especie_animal, id_responsavel.',
+      });
+    }
+
+    const novoAnimal = await animalService.criar(req.body);
+    res.status(201).json(novoAnimal);
+  } catch (err) {
+    console.error('[animalController.criar]', err);
+    res.status(500).json({ error: 'Erro ao criar animal.' });
+  }
+}
+
+export async function atualizar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const { nm_animal, especie_animal } = req.body;
+
+    if (!nm_animal || !especie_animal) {
+      return res.status(400).json({ error: 'Campos obrigatórios: nm_animal, especie_animal.' });
+    }
+
+    const atualizado = await animalService.atualizar(id, req.body, uid);
+
+    if (!atualizado) {
+      return res.status(404).json({ error: 'Animal não encontrado.' });
+    }
+    res.status(200).json({ id_animal: id, ...req.body });
+  } catch (err) {
+    console.error('[animalController.atualizar]', err);
+    res.status(500).json({ error: 'Erro ao atualizar animal.' });
+  }
+}
+
+export async function remover(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const removido = await animalService.remover(id, uid);
+
+    if (!removido) {
+      return res.status(404).json({ error: 'Animal não encontrado.' });
+    }
+    res.status(204).send();
+  } catch (err) {
+    console.error('[animalController.remover]', err);
+    res.status(500).json({ error: 'Erro ao remover animal.' });
+  }
+}
+
+
+===== ./src/controllers/authController.ts =====
+import { Request, Response } from 'express';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import * as usuarioService from '../services/usuarioService';
+
+const SALT_ROUNDS = 10;
+const TOKEN_EXPIRACAO = '2h';
+
+function gerarToken(idUsuario: number): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET não configurado.');
+  }
+  return jwt.sign({ uid: String(idUsuario) }, secret, { expiresIn: TOKEN_EXPIRACAO });
+}
+
+export async function cadastrar(req: Request, res: Response) {
+  try {
+    const { nome, email, senha } = req.body;
+    if (!nome || !email || !senha) {
+      return res.status(400).json({ error: 'Campos obrigatórios: nome, email, senha.' });
+    }
+    if (senha.length < 6) {
+      return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres.' });
+    }
+    const existente = await usuarioService.buscarPorEmail(email);
+    if (existente) {
+      return res.status(409).json({ error: 'Já existe uma conta com este e-mail.' });
+    }
+    const senhaHash = await bcrypt.hash(senha, SALT_ROUNDS);
+    const novoUsuario = await usuarioService.criar(nome, email, senhaHash);
+    const token = gerarToken(novoUsuario.id_usuario);
+    res.status(201).json({
+      token,
+      usuario: { id_usuario: novoUsuario.id_usuario, nm_usuario: novoUsuario.nm_usuario, email_usuario: novoUsuario.email_usuario },
+    });
+  } catch (err) {
+    console.error('[authController.cadastrar]', err);
+    res.status(500).json({ error: 'Erro ao cadastrar usuário.' });
+  }
+}
+
+export async function login(req: Request, res: Response) {
+  try {
+    const { email, senha } = req.body;
+    if (!email || !senha) {
+      return res.status(400).json({ error: 'Campos obrigatórios: email, senha.' });
+    }
+    const usuario = await usuarioService.buscarPorEmail(email);
+    if (!usuario) {
+      return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+    }
+    const senhaCorreta = await bcrypt.compare(senha, usuario.senha_hash);
+    if (!senhaCorreta) {
+      return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+    }
+    const token = gerarToken(usuario.id_usuario);
+    res.status(200).json({
+      token,
+      usuario: { id_usuario: usuario.id_usuario, nm_usuario: usuario.nm_usuario, email_usuario: usuario.email_usuario },
+    });
+  } catch (err) {
+    console.error('[authController.login]', err);
+    res.status(500).json({ error: 'Erro ao efetuar login.' });
+  }
+}
+
+export async function logout(_req: Request, res: Response) {
+  res.status(200).json({ message: 'Logout efetuado. Descarte o token salvo no app.' });
+}
+
+export async function atualizarPerfil(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const { nome, email, senha } = req.body;
+    if (!nome || !email) {
+      return res.status(400).json({ error: 'Campos obrigatórios: nome, email.' });
+    }
+    let senhaHash: string | undefined;
+    if (senha) {
+      if (senha.length < 6) {
+        return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres.' });
+      }
+      senhaHash = await bcrypt.hash(senha, SALT_ROUNDS);
+    }
+    await usuarioService.atualizar(uid, nome, email, senhaHash);
+    res.status(200).json({ id_usuario: uid, nm_usuario: nome, email_usuario: email });
+  } catch (err) {
+    console.error('[authController.atualizarPerfil]', err);
+    res.status(500).json({ error: 'Erro ao atualizar perfil.' });
+  }
+}
+
+export async function apagarConta(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const { senha } = req.body;
+    if (!senha) {
+      return res.status(400).json({ error: 'Campo obrigatório: senha.' });
+    }
+    const usuario = await usuarioService.buscarPorId(uid);
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+    const senhaCorreta = await bcrypt.compare(senha, usuario.senha_hash);
+    if (!senhaCorreta) {
+      return res.status(401).json({ error: 'Senha incorreta.' });
+    }
+    await usuarioService.apagar(uid);
+    res.status(204).send();
+  } catch (err) {
+    console.error('[authController.apagarConta]', err);
+    res.status(500).json({ error: 'Erro ao apagar conta.' });
+  }
+}
+
+export async function buscarPerfil(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const usuario = await usuarioService.buscarPorId(uid);
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+    // nunca devolve a senha_hash, mesmo sendo o hash — não é dado que o app precisa ver
+    res.status(200).json({
+      id_usuario: usuario.id_usuario,
+      nm_usuario: usuario.nm_usuario,
+      email_usuario: usuario.email_usuario,
+    });
+  } catch (err) {
+    console.error('[authController.buscarPerfil]', err);
+    res.status(500).json({ error: 'Erro ao buscar perfil.' });
+  }
+}
+
+===== ./src/controllers/consultaController.ts =====
+import { Request, Response } from 'express';
+import * as consultaService from '../services/consultaService';
+
+const STATUS_VALIDOS = ['Agendado', 'Concluido', 'Atrasado'];
+
+export async function listar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const consultas = await consultaService.listarPorUsuario(uid);
+    res.status(200).json(consultas);
+  } catch (err) {
+    console.error('[consultaController.listar]', err);
+    res.status(500).json({ error: 'Erro ao listar consultas.' });
+  }
+}
+
+export async function buscarPorId(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const consulta = await consultaService.buscarPorId(id, uid);
+
+    if (!consulta) {
+      return res.status(404).json({ error: 'Consulta não encontrada.' });
+    }
+    res.status(200).json(consulta);
+  } catch (err) {
+    console.error('[consultaController.buscarPorId]', err);
+    res.status(500).json({ error: 'Erro ao buscar consulta.' });
+  }
+}
+
+export async function criar(req: Request, res: Response) {
+  try {
+    const { historico_consulta, dt_consulta, hr_consulta, id_animal, st_consulta } = req.body;
+
+    if (!historico_consulta || !dt_consulta || !hr_consulta || !id_animal) {
+      return res.status(400).json({
+        error: 'Campos obrigatórios: historico_consulta, dt_consulta, hr_consulta, id_animal.',
+      });
+    }
+
+    if (st_consulta && !STATUS_VALIDOS.includes(st_consulta)) {
+      return res.status(400).json({ error: `st_consulta deve ser um de: ${STATUS_VALIDOS.join(', ')}.` });
+    }
+
+    const novaConsulta = await consultaService.criar(req.body);
+    res.status(201).json(novaConsulta);
+  } catch (err) {
+    console.error('[consultaController.criar]', err);
+    res.status(500).json({ error: 'Erro ao criar consulta.' });
+  }
+}
+
+export async function atualizar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const { historico_consulta, dt_consulta, hr_consulta, st_consulta } = req.body;
+
+    if (!historico_consulta || !dt_consulta || !hr_consulta || !st_consulta) {
+      return res.status(400).json({
+        error: 'Campos obrigatórios: historico_consulta, dt_consulta, hr_consulta, st_consulta.',
+      });
+    }
+
+    if (!STATUS_VALIDOS.includes(st_consulta)) {
+      return res.status(400).json({ error: `st_consulta deve ser um de: ${STATUS_VALIDOS.join(', ')}.` });
+    }
+
+    const atualizado = await consultaService.atualizar(
+      id,
+      { historico_consulta, dt_consulta, hr_consulta, st_consulta },
+      uid
+    );
+
+    if (!atualizado) {
+      return res.status(404).json({ error: 'Consulta não encontrada.' });
+    }
+    res.status(200).json({ id_consulta: id, historico_consulta, dt_consulta, hr_consulta, st_consulta });
+  } catch (err) {
+    console.error('[consultaController.atualizar]', err);
+    res.status(500).json({ error: 'Erro ao atualizar consulta.' });
+  }
+}
+
+export async function remover(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const removido = await consultaService.remover(id, uid);
+
+    if (!removido) {
+      return res.status(404).json({ error: 'Consulta não encontrada.' });
+    }
+    res.status(204).send();
+  } catch (err) {
+    console.error('[consultaController.remover]', err);
+    res.status(500).json({ error: 'Erro ao remover consulta.' });
+  }
+}
+
+
+===== ./src/controllers/responsavelController.ts =====
+import { Request, Response } from 'express';
+import * as responsavelService from '../services/responsavelService';
+
+export async function listar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const { cpf } = req.query;
+
+    if (cpf && typeof cpf === 'string') {
+      const responsavel = await responsavelService.buscarPorCpf(cpf, uid);
+      return res.status(200).json(responsavel); // pode ser null — o mobile já trata isso
+    }
+
+    const responsaveis = await responsavelService.listarPorUsuario(uid);
+    res.status(200).json(responsaveis);
+  } catch (err) {
+    console.error('[responsavelController.listar]', err);
+    res.status(500).json({ error: 'Erro ao listar responsáveis.' });
+  }
+}
+
+export async function buscarPorId(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const responsavel = await responsavelService.buscarPorId(id, uid);
+
+    if (!responsavel) {
+      return res.status(404).json({ error: 'Responsável não encontrado.' });
+    }
+    res.status(200).json(responsavel);
+  } catch (err) {
+    console.error('[responsavelController.buscarPorId]', err);
+    res.status(500).json({ error: 'Erro ao buscar responsável.' });
+  }
+}
+
+export async function criar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const { cpf_responsavel, nm_responsavel, nr_telefone_responsavel } = req.body;
+
+    if (!cpf_responsavel || !nm_responsavel || !nr_telefone_responsavel) {
+      return res.status(400).json({
+        error: 'Campos obrigatórios: cpf_responsavel, nm_responsavel, nr_telefone_responsavel.',
+      });
+    }
+
+    const novoResponsavel = await responsavelService.criar(
+      { cpf_responsavel, nm_responsavel, nr_telefone_responsavel },
+      uid
+    );
+    res.status(201).json(novoResponsavel);
+  } catch (err) {
+    console.error('[responsavelController.criar]', err);
+    res.status(500).json({ error: 'Erro ao criar responsável.' });
+  }
+}
+
+export async function atualizar(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const { cpf_responsavel, nm_responsavel, nr_telefone_responsavel } = req.body;
+
+    if (!cpf_responsavel || !nm_responsavel || !nr_telefone_responsavel) {
+      return res.status(400).json({
+        error: 'Campos obrigatórios: cpf_responsavel, nm_responsavel, nr_telefone_responsavel.',
+      });
+    }
+
+    const atualizado = await responsavelService.atualizar(
+      id,
+      { cpf_responsavel, nm_responsavel, nr_telefone_responsavel },
+      uid
+    );
+
+    if (!atualizado) {
+      return res.status(404).json({ error: 'Responsável não encontrado.' });
+    }
+    res.status(200).json({ id_responsavel: id, cpf_responsavel, nm_responsavel, nr_telefone_responsavel });
+  } catch (err) {
+    console.error('[responsavelController.atualizar]', err);
+    res.status(500).json({ error: 'Erro ao atualizar responsável.' });
+  }
+}
+
+export async function remover(req: Request, res: Response) {
+  try {
+    const uid = req.uid!;
+    const id = Number(req.params.id);
+    const removido = await responsavelService.remover(id, uid);
+
+    if (!removido) {
+      return res.status(404).json({ error: 'Responsável não encontrado.' });
+    }
+    res.status(204).send();
+  } catch (err) {
+    console.error('[responsavelController.remover]', err);
+    res.status(500).json({ error: 'Erro ao remover responsável.' });
+  }
+}
+
+
+===== ./src/middlewares/auth.ts =====
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+
+/**
+ * Middleware que protege as rotas, exigindo um JWT válido no header
+ * Authorization: Bearer <token>.
+ *
+ * O token é emitido pelo próprio backend (ver authController.ts),
+ * após login ou cadastro bem-sucedidos.
+ */
+export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.header('authorization') || req.header('Authorization');
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token de autenticação ausente.' });
+  }
+
+  const token = authHeader.substring('Bearer '.length);
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret) {
+    return res.status(500).json({
+      error: 'JWT_SECRET não configurado no servidor. Confira o .env.',
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, secret) as { uid: string };
+    req.uid = decoded.uid;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Token inválido ou expirado.' });
+  }
+}
+
+===== ./src/routes/animalRoutes.ts =====
+import { Router } from 'express';
+import * as animalController from '../controllers/animalController';
+
+const router = Router();
+
+// GET /animais                  -> lista todos
+// GET /animais?microchip=XXX    -> busca por microchip (deduplicação do modal "Nova Consulta")
+router.get('/', animalController.listar);
+
+router.get('/:id', animalController.buscarPorId);
+router.get('/:id/consultas', animalController.listarConsultasDoAnimal);
+router.post('/', animalController.criar);
+router.put('/:id', animalController.atualizar);
+router.delete('/:id', animalController.remover);
+
+export default router;
+
+
+===== ./src/routes/authRoutes.ts =====
+import { Router } from 'express';
+import * as authController from '../controllers/authController';
+import { authMiddleware } from '../middlewares/auth';
+
+const router = Router();
+
+router.post('/cadastro', authController.cadastrar);
+router.post('/login', authController.login);
+router.post('/logout', authController.logout);
+router.get('/perfil', authMiddleware, authController.buscarPerfil);
+router.put('/perfil', authMiddleware, authController.atualizarPerfil);
+router.delete('/conta', authMiddleware, authController.apagarConta);
+
+export default router;
+
+===== ./src/routes/consultaRoutes.ts =====
+import { Router } from 'express';
+import * as consultaController from '../controllers/consultaController';
+
+const router = Router();
+
+router.get('/', consultaController.listar);
+router.get('/:id', consultaController.buscarPorId);
+router.post('/', consultaController.criar);
+router.put('/:id', consultaController.atualizar);
+router.delete('/:id', consultaController.remover);
+
+export default router;
+
+
+===== ./src/routes/responsavelRoutes.ts =====
+import { Router } from 'express';
+import * as responsavelController from '../controllers/responsavelController';
+
+const router = Router();
+
+// GET /responsaveis            -> lista todos
+// GET /responsaveis?cpf=XXX    -> busca por cpf (usado na deduplicação do modal "Nova Consulta")
+router.get('/', responsavelController.listar);
+
+router.get('/:id', responsavelController.buscarPorId);
+router.post('/', responsavelController.criar);
+router.put('/:id', responsavelController.atualizar);
+router.delete('/:id', responsavelController.remover);
+
+export default router;
+
+
+===== ./src/server.ts =====
+import 'dotenv/config';
+import app from './app';
+import { initDatabase, closeDatabase } from './config/database';
+
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+
+async function start() {
+  try {
+    if (!process.env.JWT_SECRET) {
+      console.error('[server] JWT_SECRET não configurado no .env. O servidor não pode iniciar sem isso.');
+      process.exit(1);
+    }
+
+    await initDatabase();
+
+    const server = app.listen(PORT, () => {
+      console.log(`[server] ClyvoVet backend rodando em http://localhost:${PORT}`);
+      console.log('[server] Autenticação: JWT próprio (login/cadastro em /auth)');
+    });
+
+    // Encerramento gracioso: fecha o pool do Oracle antes de derrubar o processo.
+    const shutdown = async () => {
+      console.log('\n[server] Encerrando...');
+      server.close();
+      await closeDatabase();
+      process.exit(0);
+    };
+
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+  } catch (err) {
+    console.error('[server] Falha ao iniciar o servidor:', err);
+    process.exit(1);
+  }
+}
+
+start();
+
+===== ./src/services/animalService.ts =====
+import oracledb from 'oracledb';
+import { runQuery } from '../config/database';
+import { Animal, CriarAnimalBody } from '../types';
+
+// Todas as queries fazem JOIN com T_CLYVO_RESPONSAVEL para checar o dono,
+// já que Animal não guarda o id do usuário diretamente — ele herda via responsável.
+
+export async function listarPorUsuario(uid: string): Promise<Animal[]> {
+  const result = await runQuery<Animal>(
+    `SELECT a.id_animal, a.rg_animal, a.nr_microchip_animal, a.nm_animal,
+            a.dt_nascimento_animal, a.peso_animal, a.especie_animal, a.raca_animal,
+            a.id_responsavel
+     FROM T_CLYVO_ANIMAL a
+     INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+     WHERE r.id_usuario_dono = :idUsuario
+     ORDER BY a.nm_animal`,
+    { idUsuario: Number(uid) }
+  );
+  return result.rows ?? [];
+}
+
+export async function buscarPorId(id: number, uid: string): Promise<Animal | null> {
+  const result = await runQuery<Animal>(
+    `SELECT a.id_animal, a.rg_animal, a.nr_microchip_animal, a.nm_animal,
+            a.dt_nascimento_animal, a.peso_animal, a.especie_animal, a.raca_animal,
+            a.id_responsavel
+     FROM T_CLYVO_ANIMAL a
+     INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+     WHERE a.id_animal = :id AND r.id_usuario_dono = :idUsuario`,
+    { id, idUsuario: Number(uid) }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function buscarPorMicrochip(microchip: string, uid: string): Promise<Animal | null> {
+  const result = await runQuery<Animal>(
+    `SELECT a.id_animal, a.rg_animal, a.nr_microchip_animal, a.nm_animal,
+            a.dt_nascimento_animal, a.peso_animal, a.especie_animal, a.raca_animal,
+            a.id_responsavel
+     FROM T_CLYVO_ANIMAL a
+     INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+     WHERE a.nr_microchip_animal = :microchip AND r.id_usuario_dono = :idUsuario`,
+    { microchip, idUsuario: Number(uid) }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function criar(body: CriarAnimalBody): Promise<Animal> {
+  const result = await runQuery<{ id_animal: number }>(
+    `INSERT INTO T_CLYVO_ANIMAL
+       (rg_animal, nr_microchip_animal, nm_animal, dt_nascimento_animal, peso_animal, especie_animal, raca_animal, id_responsavel)
+     VALUES
+       (:rg, :microchip, :nome, TO_DATE(:nascimento, 'YYYY-MM-DD'), :peso, :especie, :raca, :idResponsavel)
+     RETURNING id_animal INTO :novoId`,
+    {
+      rg: body.rg_animal ?? null,
+      microchip: body.nr_microchip_animal ?? null,
+      nome: body.nm_animal,
+      nascimento: body.dt_nascimento_animal ?? null,
+      peso: body.peso_animal ?? null,
+      especie: body.especie_animal,
+      raca: body.raca_animal ?? null,
+      idResponsavel: body.id_responsavel,
+      novoId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+    }
+  );
+
+  const novoId = (result.outBinds as any).novoId[0];
+  return { id_animal: novoId, ...body } as Animal;
+}
+
+export async function atualizar(id: number, body: CriarAnimalBody, uid: string): Promise<boolean> {
+  const result = await runQuery(
+    `UPDATE T_CLYVO_ANIMAL a
+     SET rg_animal = :rg,
+         nr_microchip_animal = :microchip,
+         nm_animal = :nome,
+         dt_nascimento_animal = TO_DATE(:nascimento, 'YYYY-MM-DD'),
+         peso_animal = :peso,
+         especie_animal = :especie,
+         raca_animal = :raca
+     WHERE a.id_animal = :id
+       AND EXISTS (
+         SELECT 1 FROM T_CLYVO_RESPONSAVEL r
+         WHERE r.id_responsavel = a.id_responsavel AND r.id_usuario_dono = :idUsuario
+       )`,
+    {
+      id,
+      uid: Number(uid),
+      rg: body.rg_animal ?? null,
+      microchip: body.nr_microchip_animal ?? null,
+      nome: body.nm_animal,
+      nascimento: body.dt_nascimento_animal ?? null,
+      peso: body.peso_animal ?? null,
+      especie: body.especie_animal,
+      raca: body.raca_animal ?? null,
+    }
+  );
+  return (result.rowsAffected ?? 0) > 0;
+}
+
+export async function remover(id: number, uid: string): Promise<boolean> {
+  // ON DELETE CASCADE cuida de remover as Consultas vinculadas a este animal.
+  const result = await runQuery(
+    `DELETE FROM T_CLYVO_ANIMAL a
+     WHERE a.id_animal = :id
+       AND EXISTS (
+         SELECT 1 FROM T_CLYVO_RESPONSAVEL r
+         WHERE r.id_responsavel = a.id_responsavel AND r.id_usuario_dono = :idUsuario
+       )`,
+    { id, idUsuario: Number(uid) }
+  );
+  return (result.rowsAffected ?? 0) > 0;
+}
+
+===== ./src/services/consultaService.ts =====
+import oracledb from 'oracledb';
+import { runQuery } from '../config/database';
+import { Consulta, CriarConsultaBody, AtualizarConsultaBody } from '../types';
+
+// Consulta herda o dono via Animal -> Responsavel, por isso o duplo JOIN.
+
+export async function listarPorUsuario(uid: string): Promise<Consulta[]> {
+  const result = await runQuery<Consulta>(
+    `SELECT c.id_consulta, c.historico_consulta, c.st_consulta, c.dt_consulta, c.hr_consulta, c.id_animal
+     FROM T_CLYVO_CONSULTA c
+     INNER JOIN T_CLYVO_ANIMAL a ON a.id_animal = c.id_animal
+     INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+     WHERE r.id_usuario_dono = :idUsuario
+     ORDER BY c.dt_consulta DESC`,
+    { idUsuario: Number(uid) }
+  );
+  return result.rows ?? [];
+}
+
+export async function buscarPorId(id: number, uid: string): Promise<Consulta | null> {
+  const result = await runQuery<Consulta>(
+    `SELECT c.id_consulta, c.historico_consulta, c.st_consulta, c.dt_consulta, c.hr_consulta, c.id_animal
+     FROM T_CLYVO_CONSULTA c
+     INNER JOIN T_CLYVO_ANIMAL a ON a.id_animal = c.id_animal
+     INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+     WHERE c.id_consulta = :id AND r.id_usuario_dono = :idUsuario`,
+    { id, idUsuario: Number(uid) }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function listarPorAnimal(idAnimal: number, uid: string): Promise<Consulta[]> {
+  const result = await runQuery<Consulta>(
+    `SELECT c.id_consulta, c.historico_consulta, c.st_consulta, c.dt_consulta, c.hr_consulta, c.id_animal
+     FROM T_CLYVO_CONSULTA c
+     INNER JOIN T_CLYVO_ANIMAL a ON a.id_animal = c.id_animal
+     INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+     WHERE c.id_animal = :idAnimal AND r.id_usuario_dono = :idUsuario
+     ORDER BY c.dt_consulta DESC`,
+    { idAnimal, idUsuario: Number(uid) }
+  );
+  return result.rows ?? [];
+}
+
+export async function criar(body: CriarConsultaBody): Promise<Consulta> {
+  const status = body.st_consulta ?? 'Agendado';
+
+  const result = await runQuery<{ id_consulta: number }>(
+    `INSERT INTO T_CLYVO_CONSULTA (historico_consulta, st_consulta, dt_consulta, hr_consulta, id_animal)
+     VALUES (:historico, :status, TO_DATE(:data, 'YYYY-MM-DD'), :hora, :idAnimal)
+     RETURNING id_consulta INTO :novoId`,
+    {
+      historico: body.historico_consulta,
+      status,
+      data: body.dt_consulta,
+      hora: body.hr_consulta,
+      idAnimal: body.id_animal,
+      novoId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+    }
+  );
+
+  const novoId = (result.outBinds as any).novoId[0];
+  return {
+    id_consulta: novoId,
+    historico_consulta: body.historico_consulta,
+    st_consulta: status,
+    dt_consulta: body.dt_consulta,
+    hr_consulta: body.hr_consulta,
+    id_animal: body.id_animal,
+  };
+}
+
+export async function atualizar(
+  id: number,
+  body: AtualizarConsultaBody,
+  uid: string
+): Promise<boolean> {
+  const result = await runQuery(
+    `UPDATE T_CLYVO_CONSULTA c
+     SET historico_consulta = :historico,
+         st_consulta = :status,
+         dt_consulta = TO_DATE(:data, 'YYYY-MM-DD'),
+         hr_consulta = :hora
+     WHERE c.id_consulta = :id
+       AND EXISTS (
+         SELECT 1 FROM T_CLYVO_ANIMAL a
+         INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+         WHERE a.id_animal = c.id_animal AND r.id_usuario_dono = :idUsuario
+       )`,
+    {
+      id,
+      idUsuario: Number(uid),
+      historico: body.historico_consulta,
+      status: body.st_consulta,
+      data: body.dt_consulta,
+      hora: body.hr_consulta,
+    }
+  );
+  return (result.rowsAffected ?? 0) > 0;
+}
+
+export async function remover(id: number, uid: string): Promise<boolean> {
+  const result = await runQuery(
+    `DELETE FROM T_CLYVO_CONSULTA c
+     WHERE c.id_consulta = :id
+       AND EXISTS (
+         SELECT 1 FROM T_CLYVO_ANIMAL a
+         INNER JOIN T_CLYVO_RESPONSAVEL r ON r.id_responsavel = a.id_responsavel
+         WHERE a.id_animal = c.id_animal AND r.id_usuario_dono = :idUsuario
+       )`,
+    { id, idUsuario: Number(uid) }
+  );
+  return (result.rowsAffected ?? 0) > 0;
+}
+
+===== ./src/services/responsavelService.ts =====
+import oracledb from 'oracledb';
+import { runQuery } from '../config/database';
+import { Responsavel, CriarResponsavelBody } from '../types';
+
+export async function listarPorUsuario(uid: string): Promise<Responsavel[]> {
+  const result = await runQuery<Responsavel>(
+    `SELECT id_responsavel, id_usuario_dono, cpf_responsavel, nm_responsavel, nr_telefone_responsavel
+     FROM T_CLYVO_RESPONSAVEL
+     WHERE id_usuario_dono = :idUsuario
+     ORDER BY nm_responsavel`,
+    { idUsuario: Number(uid) }
+  );
+  return result.rows ?? [];
+}
+
+export async function buscarPorId(id: number, uid: string): Promise<Responsavel | null> {
+  const result = await runQuery<Responsavel>(
+    `SELECT id_responsavel, id_usuario_dono, cpf_responsavel, nm_responsavel, nr_telefone_responsavel
+     FROM T_CLYVO_RESPONSAVEL
+     WHERE id_responsavel = :id AND id_usuario_dono = :idUsuario`,
+    { id, idUsuario: Number(uid) }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function buscarPorCpf(cpf: string, uid: string): Promise<Responsavel | null> {
+  const result = await runQuery<Responsavel>(
+    `SELECT id_responsavel, id_usuario_dono, cpf_responsavel, nm_responsavel, nr_telefone_responsavel
+     FROM T_CLYVO_RESPONSAVEL
+     WHERE cpf_responsavel = :cpf AND id_usuario_dono = :idUsuario`,
+    { cpf, idUsuario: Number(uid) }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function criar(body: CriarResponsavelBody, uid: string): Promise<Responsavel> {
+  const result = await runQuery<{ id_responsavel: number }>(
+    `INSERT INTO T_CLYVO_RESPONSAVEL (id_usuario_dono, cpf_responsavel, nm_responsavel, nr_telefone_responsavel)
+     VALUES (:idUsuario, :cpf, :nome, :telefone)
+     RETURNING id_responsavel INTO :novoId`,
+    {
+      idUsuario: Number(uid),
+      cpf: body.cpf_responsavel,
+      nome: body.nm_responsavel,
+      telefone: body.nr_telefone_responsavel,
+      novoId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+    }
+  );
+
+  const novoId = (result.outBinds as any).novoId[0];
+  return {
+    id_responsavel: novoId,
+    id_usuario_dono: Number(uid),
+    cpf_responsavel: body.cpf_responsavel,
+    nm_responsavel: body.nm_responsavel,
+    nr_telefone_responsavel: body.nr_telefone_responsavel,
+  };
+}
+
+export async function atualizar(
+  id: number,
+  body: CriarResponsavelBody,
+  uid: string
+): Promise<boolean> {
+  const result = await runQuery(
+    `UPDATE T_CLYVO_RESPONSAVEL
+     SET cpf_responsavel = :cpf, nm_responsavel = :nome, nr_telefone_responsavel = :telefone
+     WHERE id_responsavel = :id AND id_usuario_dono = :idUsuario`,
+    {
+      id,
+      idUsuario: Number(uid),
+      cpf: body.cpf_responsavel,
+      nome: body.nm_responsavel,
+      telefone: body.nr_telefone_responsavel,
+    }
+  );
+  return (result.rowsAffected ?? 0) > 0;
+}
+
+export async function remover(id: number, uid: string): Promise<boolean> {
+  // ON DELETE CASCADE no schema já cuida de remover Animais e Consultas vinculados.
+  const result = await runQuery(
+    `DELETE FROM T_CLYVO_RESPONSAVEL WHERE id_responsavel = :id AND id_usuario_dono = :idUsuario`,
+    { id, idUsuario: Number(uid) }
+  );
+  return (result.rowsAffected ?? 0) > 0;
+}
+
+/**
+ * Conta quantos animais um responsável ainda tem.
+ * Não é usado diretamente aqui (o CASCADE do banco já remove tudo junto),
+ * mas fica disponível caso o time queira, no futuro, impedir a remoção
+ * do responsável enquanto ele ainda tiver animais vinculados, em vez de
+ * deixar o CASCADE remover tudo silenciosamente.
+ */
+export async function contarAnimaisVinculados(idResponsavel: number): Promise<number> {
+  const result = await runQuery<{ TOTAL: number }>(
+    `SELECT COUNT(*) AS total FROM T_CLYVO_ANIMAL WHERE id_responsavel = :id`,
+    { id: idResponsavel }
+  );
+  return result.rows?.[0]?.TOTAL ?? 0;
+}
+
+===== ./src/services/usuarioService.ts =====
+import oracledb from "oracledb";
+import { runQuery } from "../config/database";
+
+export interface Usuario {
+  id_usuario: number;
+  nm_usuario: string;
+  email_usuario: string;
+  senha_hash: string;
+}
+
+export async function buscarPorEmail(email: string): Promise<Usuario | null> {
+  const result = await runQuery<Usuario>(
+    `SELECT id_usuario, nm_usuario, email_usuario, senha_hash
+     FROM T_CLYVO_USUARIO
+     WHERE email_usuario = :email`,
+    { email }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function buscarPorId(id: string): Promise<Usuario | null> {
+  const result = await runQuery<Usuario>(
+    `SELECT id_usuario, nm_usuario, email_usuario, senha_hash
+     FROM T_CLYVO_USUARIO
+     WHERE id_usuario = :id`,
+    { id }
+  );
+  return result.rows?.[0] ?? null;
+}
+
+export async function criar(nome: string, email: string, senhaHash: string): Promise<Usuario> {
+  const result = await runQuery<{ id_usuario: number }>(
+    `INSERT INTO T_CLYVO_USUARIO (nm_usuario, email_usuario, senha_hash)
+     VALUES (:nome, :email, :senhaHash)
+     RETURNING id_usuario INTO :novoId`,
+    {
+      nome,
+      email,
+      senhaHash,
+      novoId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+    }
+  );
+
+  const novoId = (result.outBinds as any).novoId[0];
+  return {
+    id_usuario: novoId,
+    nm_usuario: nome,
+    email_usuario: email,
+    senha_hash: senhaHash,
+  };
+}
+
+export async function atualizar(id: string, nome: string, email: string, senhaHash?: string): Promise<void> {
+  if (senhaHash) {
+    await runQuery(
+      `UPDATE T_CLYVO_USUARIO
+       SET nm_usuario = :nome, email_usuario = :email, senha_hash = :senhaHash
+       WHERE id_usuario = :id`,
+      { id, nome, email, senhaHash }
+    );
+  } else {
+    await runQuery(
+      `UPDATE T_CLYVO_USUARIO
+       SET nm_usuario = :nome, email_usuario = :email
+       WHERE id_usuario = :id`,
+      { id, nome, email }
+    );
+  }
+}
+
+export async function apagar(id: string): Promise<void> {
+  await runQuery(
+    `DELETE FROM T_CLYVO_USUARIO WHERE id_usuario = :id`,
+    { id }
+  );
+}
+
+===== ./src/types/index.ts =====
+export type StatusConsulta = 'Agendado' | 'Concluido' | 'Atrasado';
+
+export interface Responsavel {
+  id_responsavel: number;
+  id_usuario_dono: number;
+  cpf_responsavel: string;
+  nm_responsavel: string;
+  nr_telefone_responsavel: string;
+}
+
+export interface Animal {
+  id_animal: number;
+  rg_animal: string | null;
+  nr_microchip_animal: string | null;
+  nm_animal: string;
+  dt_nascimento_animal: string | null; // ISO date string
+  peso_animal: number | null;
+  especie_animal: string;
+  raca_animal: string | null;
+  id_responsavel: number;
+}
+
+export interface Consulta {
+  id_consulta: number;
+  historico_consulta: string;
+  st_consulta: StatusConsulta;
+  dt_consulta: string; // ISO date string
+  hr_consulta: string; // "HH:MM"
+  id_animal: number;
+}
+
+// Corpo esperado no POST /responsaveis (id_usuario_dono vem do token, não do body)
+export interface CriarResponsavelBody {
+  cpf_responsavel: string;
+  nm_responsavel: string;
+  nr_telefone_responsavel: string;
+}
+
+// Corpo esperado no POST /animais
+export interface CriarAnimalBody {
+  nm_animal: string;
+  especie_animal: string;
+  raca_animal?: string;
+  dt_nascimento_animal?: string;
+  peso_animal?: number;
+  rg_animal?: string;
+  nr_microchip_animal?: string;
+  id_responsavel: number;
+}
+
+// Corpo esperado no POST /consultas
+export interface CriarConsultaBody {
+  historico_consulta: string;
+  dt_consulta: string;
+  hr_consulta: string;
+  st_consulta?: StatusConsulta;
+  id_animal: number;
+}
+
+// Corpo esperado no PUT /consultas/:id
+export interface AtualizarConsultaBody {
+  historico_consulta: string;
+  dt_consulta: string;
+  hr_consulta: string;
+  st_consulta: StatusConsulta;
+}
+
+// Estende o Request do Express para carregar o usuário autenticado
+declare global {
+  namespace Express {
+    interface Request {
+      uid?: string;
+    }
+  }
+}
+

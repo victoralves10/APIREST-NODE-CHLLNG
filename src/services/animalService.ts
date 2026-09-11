@@ -86,7 +86,7 @@ export async function atualizar(id: number, body: CriarAnimalBody, uid: string):
        )`,
     {
       id,
-      uid: Number(uid),
+      idUsuario: Number(uid),
       rg: body.rg_animal ?? null,
       microchip: body.nr_microchip_animal ?? null,
       nome: body.nm_animal,
