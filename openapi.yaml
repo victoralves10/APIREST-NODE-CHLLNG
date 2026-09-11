@@ -2,28 +2,16 @@ openapi: 3.0.3
 info:
   title: ClyvoVet API
   description: >
-    API REST do ClyvoVet Mobile — gestão de consultas, animais e responsáveis.
-    Cada usuário só enxerga os próprios dados.
-
-
-    **Como testar:** primeiro chame POST /auth/cadastro (ou /auth/login se já
-    tiver conta) para obter um token. Depois clique no botão "Authorize" no
-    topo desta página e cole o token (sem a palavra "Bearer", o Swagger já
-    adiciona isso sozinho). A partir daí, todas as rotas protegidas enviam
-    o token automaticamente.
+    API REST do ClyvoVet Mobile. Chame POST /auth/login para obter um token,
+    clique em "Authorize" e cole o token (sem "Bearer").
   version: 1.0.0
 
 servers:
   - url: https://apirest-node-chllng.onrender.com
-    description: Servidor em produção (Render)
-  - url: http://localhost:3000
-    description: Servidor local de desenvolvimento
 
 tags:
   - name: Health
-    description: Verificação de status do servidor
   - name: Autenticação
-    description: Cadastro, login e logout — não exigem token
   - name: Consultas
   - name: Animais
   - name: Responsáveis
